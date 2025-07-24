@@ -1,7 +1,7 @@
 # - * - coding: utf-8 - * -
 
 from .ppg_peaks import ppg_peaks
-from ..signal.signal_quality import signal_quality
+from ..signal.signal_templatequality import signal_templatequality
 
 
 def ppg_quality(ppg_cleaned, peaks=None, sampling_rate=1000, method="templatematch"):
@@ -90,7 +90,7 @@ def ppg_quality(ppg_cleaned, peaks=None, sampling_rate=1000, method="templatemat
         )
 
     # Run
-    quality = signal_quality(
+    quality = signal_templatequality(
         ppg_cleaned,
         beat_inds=peaks,
         signal_type="ppg",
