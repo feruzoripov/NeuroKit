@@ -58,7 +58,7 @@ def signal_templatequality(signal, beat_inds, signal_type, sampling_rate=1000, m
     ----------
     * Orphanidou, C. et al. (2015). "Signal-quality indices for the electrocardiogram and photoplethysmogram:
       derivation and applications to wireless monitoring". IEEE Journal of Biomedical and Health Informatics, 19(3), 832-8.
-    * Sabeti E. et al. (2019). Signal quality measure for pulsatile physiological signals using morphological features: 
+    * Sabeti E. et al. (2019). Signal quality measure for pulsatile physiological signals using morphological features:
       Applications in reliability measure for pulse oximetry. Informatics in Medicine Unlocked, 16, 100222.
     * Charlton, P.H, et al. (2021). An impedance pneumography signal quality index: Design, assessment
       and application to respiratory rate monitoring. Biomedical Signal Processing and Control, 65, 102339.

@@ -91,10 +91,10 @@ def rsp_findpeaks(
             peak_prominence=peak_prominence,
         )
     elif method in ["schafer", "schafer2008"]:
-        info = _rsp_findpeaks_schafer(cleaned, sampling_rate=sampling_rate)
+        info = _rsp_findpeaks_schafer(cleaned)
     else:
         raise ValueError(
-            "NeuroKit error: rsp_findpeaks(): 'method' should be one of 'khodadad2018', 'scipy' or 'biosppy'."
+            "NeuroKit error: rsp_findpeaks(): 'method' should be one of 'khodadad2018', 'scipy', 'biosppy', or 'schafer2008'."
         )
 
     return info
@@ -122,11 +122,12 @@ def _rsp_findpeaks_biosppy(rsp_cleaned, sampling_rate):
     return info
 
 
-def _rsp_findpeaks_schafer(rsp_cleaned, sampling_rate):
+def _rsp_findpeaks_schafer(rsp_cleaned):
     """Respiratory peak and trough detection based on Schafer et al. (2008)
     https://doi.org/10.1007/s10439-007-9428-1
+    
     Based on Charlton's MATLAB implementation at:
-    https://github.com/peterhcharlton/impSQI/ 
+    https://github.com/peterhcharlton/impSQI/
     """
 
     # Invert and detrend signal
