@@ -909,6 +909,7 @@ def _onset_offset_delineator(ecg, peaks, peak_type="rpeaks", sampling_rate=1000)
                 onsets.append(max(candidate_onsets))
 
         # find offset
+        height = 0.0
         if peak_type == "rpeaks":
             search_window = -cwtmatr[2, index_peak : index_peak + half_wave_width]
             prominence = 0.50 * max(search_window)
