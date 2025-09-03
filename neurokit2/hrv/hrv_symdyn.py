@@ -6,11 +6,10 @@ import pandas as pd
 
 from .hrv_utils import _hrv_format_input
 
-
 def hrv_symdyn(
     peaks,
     sampling_rate: int = 1000,
-    quantization_level_equal_proba: List = [4, 6],
+    quantization_level_equal_prob: List = [4, 6],
     quantization_level_max_min: List = [6],
     sigma_rate: List = [0.05],
 ) -> pd.DataFrame:
@@ -28,7 +27,7 @@ def hrv_symdyn(
         a dict containing the keys `RRI` and `RRI_Time` to directly pass the R-R intervals and their timestamps.
     sampling_rate : int, optional
         Sampling rate (Hz) of the continuous cardiac signal in which the peaks occur, by default 1000.
-    quantization_level_equal_proba : List[int], optional
+    quantization_level_equal_prob : List[int], optional
         List of quantization levels for the equal probability method, by default [4,6].
     quantization_level_max_min : List[int], optional
         List of quantization levels for the max-min method, by default [6].
@@ -40,35 +39,35 @@ def hrv_symdyn(
     DataFrame
         Contains the HRV symbolic dynamics indices calculated using the specified methods
         (default, this may vary for non-default arguments):
-    * **SymDynMaxMin4_0V**: Represents the percentage of sequences with zero variation (all symbols are equal)
+    * **SymDyn_MaxMin4_0V**: Represents the percentage of sequences with zero variation (all symbols are equal)
         derived using the Max–Min method, where the RR intervals are quantized into six levels based on equal ranges
         from the minimum to the maximum value.
-    * **SymDynMaxMin4_1V**: Indicates the percentage of sequences with one variation (exactly one different symbol
+    * **SymDyn_MaxMin4_1V**: Indicates the percentage of sequences with one variation (exactly one different symbol
         in the sequence) using the Max–Min method.
-    * **SymDynMaxMin4_2LV**: Reflects the percentage of sequences with two like variations (all symbols are different
+    * **SymDyn_MaxMin4_2LV**: Reflects the percentage of sequences with two like variations (all symbols are different
         and form an increasing or decreasing sequence) in the Max–Min method.
-    * **SymDynMaxMin4_2UV**: Shows the percentage of sequences with two unlike variations (symbols vary in opposite
+    * **SymDyn_MaxMin4_2UV**: Shows the percentage of sequences with two unlike variations (symbols vary in opposite
         directions, forming a peak or valley) in the Max–Min method.
-    * **SymDynSigma0.05_0V**: Represents the percentage of sequences with zero variation, quantized based on the signal
+    * **SymDyn_Sigma05_0V**: Represents the percentage of sequences with zero variation, quantized based on the signal
         average and a sigma rate adjustment, using three levels.
-    * **SymDynSigma0.05_1V**: Indicates the percentage of sequences with one variation, derived using the σ method.
-    * **SymDynSigma0.05_2LV**: Reflects the percentage of sequences with two like variations, as quantized by the σ method.
-    * **SymDynSigma0.05_2UV**: Shows the percentage of sequences with two unlike variations, according to the σ method.
-    * **SymDynEqualPorba4_0V**: Represents the percentage of sequences with zero variation, derived using the
+    * **SymDyn_Sigma05_1V**: Indicates the percentage of sequences with one variation, derived using the σ method.
+    * **SymDyn_Sigma05_2LV**: Reflects the percentage of sequences with two like variations, as quantized by the σ method.
+    * **SymDyn_Sigma05_2UV**: Shows the percentage of sequences with two unlike variations, according to the σ method.
+    * **SymDyn_EqualProb4_0V**: Represents the percentage of sequences with zero variation, derived using the
         Equal-Probability method with quantization level 4, ensuring each level has the same number of points.
-    * **SymDynEqualPorba4_1V**: Indicates the percentage of sequences with one variation, using the Equal-Probability
+    * **SymDyn_EqualProb4_1V**: Indicates the percentage of sequences with one variation, using the Equal-Probability
         method with quantization level 4.
-    * **SymDynEqualPorba4_2LV**: Reflects the percentage of sequences with two like variations, in the Equal-Probability
+    * **SymDyn_EqualProb4_2LV**: Reflects the percentage of sequences with two like variations, in the Equal-Probability
         method with quantization level 4.
-    * **SymDynEqualPorba4_2UV**: Shows the percentage of sequences with two unlike variations, derived with the
+    * **SymDyn_EqualProb4_2UV**: Shows the percentage of sequences with two unlike variations, derived with the
         Equal-Probability method at quantization level 4.
-    * **SymDynEqualPorba6_0V**: Represents the percentage of sequences with zero variation, quantized by the
+    * **SymDyn_EqualProb6_0V**: Represents the percentage of sequences with zero variation, quantized by the
         Equal-Probability method with quantization level 6, for a direct comparison with the σ method and Max–Min method.
-    * **SymDynEqualPorba6_1V**: Indicates the percentage of sequences with one variation, using the Equal-Probability
+    * **SymDyn_EqualProb6_1V**: Indicates the percentage of sequences with one variation, using the Equal-Probability
         method with quantization level 6.
-    * **SymDynEqualPorba6_2LV**: Reflects the percentage of sequences with two like variations, in the Equal-Probability
+    * **SymDyn_EqualProb6_2LV**: Reflects the percentage of sequences with two like variations, in the Equal-Probability
         method with quantization level 6.
-    * **SymDynEqualPorba6_2UV**: Shows the percentage of sequences with two unlike variations, quantized by the
+    * **SymDyn_EqualProb6_2UV**: Shows the percentage of sequences with two unlike variations, quantized by the
         Equal-Probability method with quantization level 6.
 
 
@@ -113,7 +112,7 @@ def hrv_symdyn(
     rri, _, _ = _hrv_format_input(peaks, sampling_rate=sampling_rate)
 
     out = []
-    for quantization_level in quantization_level_equal_proba:
+    for quantization_level in quantization_level_equal_prob:
         out.append(equal_probability_method(rri, quantization_level))
     for quantization_level in quantization_level_max_min:
         out.append(max_min_method(rri, quantization_level))
@@ -176,7 +175,7 @@ def max_min_method(rri: np.array, quantization_level: int = 6) -> pd.DataFrame:
 
     families = get_families_from_symbols(symbols)
 
-    out = pd.DataFrame.from_dict(families, orient="index").T.add_prefix(f"HRV_SymDynMaxMin{quantization_level}_")
+    out = pd.DataFrame.from_dict(families, orient="index").T.add_prefix(f"HRV_SymDyn_MaxMin{quantization_level}_")
 
     return out
 
@@ -213,7 +212,7 @@ def sigma_method(rri: np.array, sigma_rate: float = 0.05) -> pd.DataFrame:
 
     families = get_families_from_symbols(symbols)
 
-    out = pd.DataFrame.from_dict(families, orient="index").T.add_prefix(f"HRV_SymDynSigma{sigma_rate}_")
+    out = pd.DataFrame.from_dict(families, orient="index").T.add_prefix(f"HRV_SymDyn_Sigma{str(sigma_rate).split('.')[1]}_")
 
     return out
 
@@ -250,7 +249,7 @@ def equal_probability_method(rri: np.array, quantization_level: int = 4) -> pd.D
 
     families = get_families_from_symbols(symbols)
 
-    out = pd.DataFrame.from_dict(families, orient="index").T.add_prefix(f"HRV_SymDynEqualPorba{quantization_level}_")
+    out = pd.DataFrame.from_dict(families, orient="index").T.add_prefix(f"HRV_SymDyn_EqualProb{quantization_level}_")
 
     return out
 
@@ -299,19 +298,19 @@ def classify_and_count(words: List) -> dict:
         and values representing the normalized counts of words belonging to each family.
 
     """
-    families = {"0V": 0, "1V": 0, "2LV": 0, "2UV": 0}
-    for word in words:
-        unique_elements = len(set(word))
-        if unique_elements == 1:
-            families["0V"] += 1
-        elif unique_elements == 2:
-            families["1V"] += 1
-        elif unique_elements == 3:
-            if (word[1] > word[0] and word[2] > word[1]) or (word[1] < word[0] and word[2] < word[1]):
-                families["2LV"] += 1
-            else:
-                families["2UV"] += 1
 
-    for key in families.keys():
-        families[key] = families[key] / len(words)
+    words = np.array(words)  # Ensure input is a NumPy array
+    unique_counts = np.apply_along_axis(lambda w: len(np.unique(w)), 1, words) 
+    families = {
+        '0V': np.sum(unique_counts == 1),
+        '1V': np.sum(unique_counts == 2),
+        '2LV': np.sum((unique_counts == 3) & ((words[:, 1] > words[:, 0]) & (words[:, 2] > words[:, 1]) |
+                                            (words[:, 1] < words[:, 0]) & (words[:, 2] < words[:, 1]))),
+        '2UV': np.sum((unique_counts == 3) & ~((words[:, 1] > words[:, 0]) & (words[:, 2] > words[:, 1]) |
+                                            (words[:, 1] < words[:, 0]) & (words[:, 2] < words[:, 1]))),
+    }
+    total_words = len(words)
+    for key in families:
+        families[key] /= total_words
+
     return families
