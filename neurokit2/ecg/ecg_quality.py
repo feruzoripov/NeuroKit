@@ -155,8 +155,8 @@ def ecg_quality(
         method = "templatematch"
     elif method in ["disimilarity", "sabeti2019"]:
         method = "disimilarity"
-    elif method in ["ho2025", "ho", "ibi"]:
-        method = "ibi"
+    elif method in ["ho2025", "ho", "ibi", "ici"]:
+        method = "ici"
     
     # Run quality assessment algorithm
     if method in ["averageqrs"]:
@@ -190,7 +190,7 @@ def ecg_quality(
             sampling_rate=sampling_rate,
             method=method,
         )
-    elif method in ["ibi"]:
+    elif method in ["ici"]:
         # Assess quality using IBI method (RR-interval accuracy prediction)
         quality = signal_quality(
             ecg_cleaned, 
@@ -198,7 +198,7 @@ def ecg_quality(
             primary_detector="unsw",
             secondary_detector="neurokit",
             sampling_rate=sampling_rate,
-            method="ibi",
+            method="ici",
         )
 
     return quality

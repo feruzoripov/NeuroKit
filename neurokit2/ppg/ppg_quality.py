@@ -98,8 +98,8 @@ def ppg_quality(ppg_cleaned, peaks=None, sampling_rate=1000, method="templatemat
         method = "templatematch"
     elif method in ["disimilarity", "sabeti2019"]:
         method = "disimilarity"
-    elif method in ["ho2025", "ho", "ibi"]:
-        method = "ibi"
+    elif method in ["ho2025", "ho", "ibi", "ici"]:
+        method = "ici"
     else:
         raise ValueError(
             f"Method '{method}' not recognised. Please use 'templatematch', 'disimilarity', or 'ho2025'."
@@ -114,7 +114,7 @@ def ppg_quality(ppg_cleaned, peaks=None, sampling_rate=1000, method="templatemat
             sampling_rate=sampling_rate,
             method=method,
         )
-    elif method=="ibi":
+    elif method=="ici":
         # Assess quality using Ho2025 method (IBI accuracy prediction)
         quality = signal_quality(
             ppg_cleaned, 
@@ -122,7 +122,7 @@ def ppg_quality(ppg_cleaned, peaks=None, sampling_rate=1000, method="templatemat
             primary_detector="charlton",
             secondary_detector="elgendi",
             sampling_rate=sampling_rate,
-            method="ibi",
+            method="ici",
         )
 
     return quality

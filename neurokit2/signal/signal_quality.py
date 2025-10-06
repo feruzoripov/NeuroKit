@@ -17,24 +17,24 @@ def signal_quality(
 
     * The ``"templatematch"`` method (loosely based on Orphanidou et al., 2015) computes a continuous
       index of quality of the PPG or ECG signal, by calculating the correlation coefficient between each
-      individual beat's morphology and an average (template) beat morphology. This index is therefore
-      relative: 1 corresponds to a signal where each individual beat's morphology is closest to the average beat morphology
-      (i.e. correlate exactly with it) and 0 corresponds to there being no correlation with the average beat morphology.
+      individual cycle's (i.e. beat's) morphology and an average (template) cycle morphology. This index is therefore
+      relative: 1 corresponds to a signal where each individual cycle's morphology is closest to the average cycle morphology
+      (i.e. correlate exactly with it) and 0 corresponds to there being no correlation with the average cycle morphology.
 
     * The ``"disimilarity"`` method (loosely based on Sabeti et al., 2019) computes a continuous index
       of quality of the PPG or ECG signal, by calculating the level of disimilarity between each individual
-      beat's morphology and an average (template) beat morpholoy (after they are normalised). A value of
-      zero indicates no disimilarity (i.e. equivalent beat morphologies), whereas values above or below
+      cycle's (i.e. beat's) morphology and an average (template) cycle morphology (after they are normalised). A value of
+      zero indicates no disimilarity (i.e. equivalent cycle morphologies), whereas values above or below
       indicate increasing disimilarity. The original method used dynamic time-warping to align the pulse
       waves prior to calculating the level of dsimilarity, whereas this implementation does not currently
       include this step.
 
-    * The ``"ibi"`` method (based on Ho et al., 2025) assesses signal quality on a beat-by-beat basis by predicting
-      whether each interbeat-interval (IBI) is accurate. To do so, beats are detected using a primary detector,
-      and each IBI is predicted to be accurate only if a secondary detector detects beats
-      in the same positions (within a tolerance). In this implementation, all signal samples within an
-      IBI are rated as high quality (1) if that IBI is predicted to be accurate, or low
-      quality (0) if that IBI is predicted to be inaccurate. This approach was derived from the previously
+    * The ``"ici"`` method (based on Ho et al., 2025) assesses signal quality on a cycle-by-cycle (e.g. beat-by-beat)
+      basis by predicting whether each intercycle-interval (ICI) (e.g. interbeat-intervals, IBIs) is accurate.
+      To do so, cycles (e.g. beats) are detected using a primary detector, and each ICI is predicted to be accurate
+      only if a secondary detector detects cycles in the same positions (within a tolerance). In this implementation,
+      all signal samples within an ICI are rated as high quality (1) if that ICI is predicted to be accurate, or low
+      quality (0) if that ICI is predicted to be inaccurate. This approach was derived from the previously
       proposed bSQI approach.
 
 
@@ -45,8 +45,8 @@ def signal_quality(
     sampling_rate : int
         The sampling frequency of ``signal`` (in Hz, i.e., samples/second). Defaults to 1000.
     cycle_inds : tuple or list
-        The list of beat or breath samples (e.g. PPG or ECG peaks returned by ``ppg_peaks()`` or ``ecg_peaks()``, or RSP peaks
-        returned by ``rsp_peaks()``).
+        The list of cycle samples (e.g. beat or breath samples, such as PPG or ECG peaks returned by ``ppg_peaks()`` 
+        or ``ecg_peaks()``, or RSP peaks returned by ``rsp_peaks()``).
     signal_type : str
         The signal type (e.g. 'ppg', 'ecg', or 'rsp').
     method : str
@@ -59,7 +59,7 @@ def signal_quality(
         The name of the secondary cycle detector (e.g. the defaults are ``"neurokit"`` for the ECG, and ``"elgendi"``
         for the PPG).
     tolerance_window_ms : int
-        The tolerance window size (in milliseconds) for use with the "ibi" method when assessing agreement between
+        The tolerance window size (in milliseconds) for use with the "ici" method when assessing agreement between
         primary and secondary cycle detectors.
     **kwargs
         Additional keyword arguments, usually specific for each method.
@@ -85,7 +85,7 @@ def signal_quality(
     
     Examples
     --------
-    * **Example 1:** Using IBI method to assess PPG signal quality
+    * **Example 1:** Using ICI method to assess PPG signal quality
 
     .. ipython:: python
 
@@ -95,7 +95,7 @@ def signal_quality(
       ppg = nk.ppg_simulate(
           duration=30, sampling_rate=sampling_rate, heart_rate=70, motion_amplitude=1, burst_number=10, random_state=12
       )
-      quality = nk.ppg_quality(ppg, sampling_rate=sampling_rate, method="ibi")
+      quality = nk.ppg_quality(ppg, sampling_rate=sampling_rate, method="ici")
       nk.signal_plot([ppg, quality], standardize=True)
       plt.close()
     
@@ -143,10 +143,8 @@ def signal_quality(
         quality = _quality_disimilarity(
             signal, cycle_inds=cycle_inds, signal_type=signal_type, sampling_rate=sampling_rate
         )
-    elif method in ["ibi", "ho2025"]:  # Based on the approach in Ho et al. (2025)
-        if signal_type not in ["ecg", "ppg"]:
-            raise Exception("IBI quality assessment is only compatible with cardiovascular signals")
-        quality = _quality_ibi(
+    elif method in ["ici", "ho2025"]:  # Based on the approach in Ho et al. (2025)
+        quality = _quality_ici(
             signal, signal_type=signal_type, primary_detector=primary_detector, secondary_detector=secondary_detector,
             sampling_rate=sampling_rate,tolerance_window_ms=tolerance_window_ms
         )
@@ -159,7 +157,7 @@ def signal_quality(
 # =============================================================================
 def _calc_template_morph(signal, cycle_inds, signal_type, sampling_rate=1000):
     
-    # Segment to get individual beat morphologies
+    # Segment to get individual cycle morphologies
     cycles, average_cycle_rate = signal_cyclesegment(signal, cycle_inds, sampling_rate=sampling_rate)
 
     # convert these to dataframe
@@ -170,9 +168,9 @@ def _calc_template_morph(signal, cycle_inds, signal_type, sampling_rate=1000):
     ind_morph = ind_morph.sort_index()
 
     # Filter Nans
-    valid_beats_mask = ~ind_morph.isnull().any(axis=1)
-    ind_morph = ind_morph[valid_beats_mask]
-    cycle_inds = np.array(cycle_inds)[valid_beats_mask.values]
+    valid_cycles_mask = ~ind_morph.isnull().any(axis=1)
+    ind_morph = ind_morph[valid_cycles_mask]
+    cycle_inds = np.array(cycle_inds)[valid_cycles_mask.values]
 
     # Find template pulse wave as the average pulse wave shape
     templ_pw = ind_morph.mean()
@@ -187,7 +185,7 @@ def _quality_templatematch(
     signal, cycle_inds=None, signal_type="ppg", sampling_rate=1000
 ):
     
-    # Obtain individual beat morphologies and template beat morphology
+    # Obtain individual cycle morphologies and template cycle morphology
     templ_morph, ind_morph, cycle_inds = _calc_template_morph(
         signal,
         cycle_inds=cycle_inds,
@@ -195,13 +193,13 @@ def _quality_templatematch(
         sampling_rate=sampling_rate,
     )
 
-    # Find correlation coefficients (CCs) between individual beat morphologies and the template
+    # Find correlation coefficients (CCs) between individual cycle morphologies and the template
     cc = np.zeros(len(cycle_inds) - 1)
-    for beat_no in range(0, len(cycle_inds) - 1):
-        temp = np.corrcoef(ind_morph.iloc[beat_no], templ_morph)
-        cc[beat_no] = temp[0, 1]
+    for cycle_no in range(0, len(cycle_inds) - 1):
+        temp = np.corrcoef(ind_morph.iloc[cycle_no], templ_morph)
+        cc[cycle_no] = temp[0, 1]
 
-    # Interpolate beat-by-beat CCs
+    # Interpolate cycle-by-cycle CCs
     quality = signal_interpolate(
         cycle_inds[0:-1], cc, x_new=np.arange(len(signal)), method="previous"
     )
@@ -250,7 +248,7 @@ def _quality_disimilarity(
     signal, cycle_inds=None, signal_type="ppg", sampling_rate=1000
 ):
 
-    # Obtain individual beat morphologies and template beat morphology
+    # Obtain individual cycle morphologies and template cycle morphology
     templ_morph, ind_morph, cycle_inds = _calc_template_morph(
         signal,
         cycle_inds=cycle_inds,
@@ -260,10 +258,10 @@ def _quality_disimilarity(
 
     # Find individual disimilarity measures
     dis = np.zeros(len(cycle_inds) - 1)
-    for beat_no in range(0, len(cycle_inds) - 1):
-        dis[beat_no] = _calc_dis(ind_morph.iloc[beat_no], templ_morph)
+    for cycle_no in range(0, len(cycle_inds) - 1):
+        dis[cycle_no] = _calc_dis(ind_morph.iloc[cycle_no], templ_morph)
 
-    # Interpolate beat-by-beat dis's
+    # Interpolate cycle-by-cycle dis's
     quality = signal_interpolate(
         cycle_inds[0:-1], dis, x_new=np.arange(len(signal)), method="previous"
     )
@@ -272,23 +270,27 @@ def _quality_disimilarity(
 
 
 # =============================================================================
-# Quality assessment using IBI method
+# Quality assessment using ICI method
 # =============================================================================
-def _quality_ibi(
+def _quality_ici(
             signal, signal_type, primary_detector, secondary_detector, sampling_rate, tolerance_window_ms=50
         ):
     
-    # Specify default beat detectors
+    # Specify default cycle (e.g. beat) detectors
     if primary_detector is None:
         if signal_type == "ecg":
             primary_detector = "unsw"
         elif signal_type == "ppg":
             primary_detector = "charlton"
+        else:
+            raise Exception("default ICI quality assessment detectors only available for ECG and PPG signals.")
     if secondary_detector is None:
         if signal_type == "ecg":
             secondary_detector = "neurokit"
         elif signal_type == "ppg":
             secondary_detector = "elgendi"
+        else:
+            raise Exception("default ICI quality assessment detectors only available for ECG and PPG signals.")
 
     # Sanitize inputs
     signal_type = signal_type.lower()  # remove capitalised letters
@@ -303,22 +305,22 @@ def _quality_ibi(
     # Specify constants
     tolerance_samps = int((tolerance_window_ms / 1000) * sampling_rate)  # tolerance_window_ms is tolerance window size, in milliseconds
 
-    # Detect beats using each beat detector in turn
-    beats_primary = _signal_beats(signal, signal_type=signal_type, beat_detector=primary_detector, sampling_rate=sampling_rate)
-    beats_secondary = _signal_beats(signal, signal_type=signal_type, beat_detector=secondary_detector, sampling_rate=sampling_rate)
+    # Detect cycles using each cycle detector in turn
+    cycles_primary = _signal_cycles(signal, signal_type=signal_type, cycle_detector=primary_detector, sampling_rate=sampling_rate)
+    cycles_secondary = _signal_cycles(signal, signal_type=signal_type, cycle_detector=secondary_detector, sampling_rate=sampling_rate)
     
-    # Filter closely spaced beats to keep only the highest amplitude beat
-    beats_primary = _filter_close_beats(beats_primary, signal, tolerance_samps)
-    beats_secondary = _filter_close_beats(beats_secondary, signal, tolerance_samps)
+    # Filter closely spaced cycles to keep only the highest amplitude cycle
+    cycles_primary = _filter_close_cycles(cycles_primary, signal, tolerance_samps)
+    cycles_secondary = _filter_close_cycles(cycles_secondary, signal, tolerance_samps)
     
     # Build quality array
     quality = np.zeros(len(signal), dtype=int)
-    for i in range(len(beats_primary) - 1):
-        start = beats_primary[i]
-        end = beats_primary[i + 1]
+    for i in range(len(cycles_primary) - 1):
+        start = cycles_primary[i]
+        end = cycles_primary[i + 1]
 
-        match_start = any(abs(start - s) <= tolerance_samps for s in beats_secondary)
-        match_end = any(abs(end - s) <= tolerance_samps for s in beats_secondary)
+        match_start = any(abs(start - s) <= tolerance_samps for s in cycles_secondary)
+        match_end = any(abs(end - s) <= tolerance_samps for s in cycles_secondary)
 
         if match_start and match_end:
             quality[start:end] = 1
@@ -326,24 +328,24 @@ def _quality_ibi(
     return quality
 
 
-def _filter_close_beats(beats, signal, tolerance_samps):
+def _filter_close_cycles(cycles, signal, tolerance_samps):
 
-    if len(beats) == 0:
+    if len(cycles) == 0:
         return []
     
-    filtered = [beats[0]]
-    for i in range(1, len(beats)):
-        if beats[i] - filtered[-1] > tolerance_samps:
-            filtered.append(beats[i])
+    filtered = [cycles[0]]
+    for i in range(1, len(cycles)):
+        if cycles[i] - filtered[-1] > tolerance_samps:
+            filtered.append(cycles[i])
         else:
             # Keep the higher amplitude peak
-            if signal[beats[i]] > signal[filtered[-1]]:
-                filtered[-1] = beats[i]
+            if signal[cycles[i]] > signal[filtered[-1]]:
+                filtered[-1] = cycles[i]
     
     return filtered
 
 
-def _signal_beats(signal, signal_type, beat_detector, sampling_rate):
+def _signal_cycles(signal, signal_type, cycle_detector, sampling_rate):
 
     # Import peak-detection functions (placed here to avoid circular imports)
     from ..ppg import ppg_peaks
@@ -355,11 +357,11 @@ def _signal_beats(signal, signal_type, beat_detector, sampling_rate):
         signals, info = ecg_peaks(
             signal,
             sampling_rate=sampling_rate,
-            method=beat_detector,
+            method=cycle_detector,
         )
 
-        # Extract beats
-        beats = info["ECG_R_Peaks"]
+        # Extract cycles
+        cycles = info["ECG_R_Peaks"]
 
     elif signal_type=="ppg":
         
@@ -367,10 +369,10 @@ def _signal_beats(signal, signal_type, beat_detector, sampling_rate):
         signals, info = ppg_peaks(
             signal,
             sampling_rate=sampling_rate,
-            method=beat_detector,
+            method=cycle_detector,
         )
 
-        # Extract beats
-        beats = info["PPG_Peaks"]
+        # Extract cycles
+        cycles = info["PPG_Peaks"]
 
-    return beats
+    return cycles
