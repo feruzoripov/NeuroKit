@@ -131,7 +131,7 @@ def signal_quality(
     """
 
     # Check inputs
-    if signal_type == None:
+    if signal_type is None:
         raise ValueError("`signal_type` must be specified (e.g. 'ppg', 'ecg', or 'rsp').")
     if method == "ici" and (signal_type != "ppg" and signal_type != "ecg"):
         raise ValueError("`method` 'ici' is only supported for 'ppg' and 'ecg' signal types.")
