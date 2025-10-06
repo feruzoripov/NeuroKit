@@ -6,7 +6,8 @@ from ..signal import signal_interpolate, signal_cyclesegment
 
 
 def signal_quality(
-    signal, sampling_rate=1000, cycle_inds=None, signal_type=None, method="templatematch", primary_detector=None, secondary_detector=None
+    signal, sampling_rate=1000, cycle_inds=None, signal_type=None, method="templatematch", primary_detector=None, 
+    secondary_detector=None, tolerance_window_ms=50
 ):
     """**Assess quality of signal by comparing individual cycle morphologies with a template**
 
@@ -57,6 +58,9 @@ def signal_quality(
     secondary_detector : str
         The name of the secondary cycle detector (e.g. the defaults are ``"neurokit"`` for the ECG, and ``"elgendi"``
         for the PPG).
+    tolerance_window_ms : int
+        The tolerance window size (in milliseconds) for use with the "ibi" method when assessing agreement between
+        primary and secondary cycle detectors.
     **kwargs
         Additional keyword arguments, usually specific for each method.
 
@@ -144,7 +148,7 @@ def signal_quality(
             raise Exception("IBI quality assessment is only compatible with cardiovascular signals")
         quality = _quality_ibi(
             signal, signal_type=signal_type, primary_detector=primary_detector, secondary_detector=secondary_detector,
-            sampling_rate=sampling_rate
+            sampling_rate=sampling_rate,tolerance_window_ms=tolerance_window_ms
         )
 
     return quality
@@ -271,7 +275,7 @@ def _quality_disimilarity(
 # Quality assessment using IBI method
 # =============================================================================
 def _quality_ibi(
-            signal, signal_type, primary_detector, secondary_detector, sampling_rate
+            signal, signal_type, primary_detector, secondary_detector, sampling_rate, tolerance_window_ms=50
         ):
     
     # Specify default beat detectors
@@ -297,8 +301,7 @@ def _quality_ibi(
         raise ValueError("`signal_type` must be 'ecg' or 'ppg'.")
 
     # Specify constants
-    tolerance_ms = 150 # tolerance window size, in milliseconds
-    tolerance_samps = int((tolerance_ms / 1000) * sampling_rate)
+    tolerance_samps = int((tolerance_window_ms / 1000) * sampling_rate)  # tolerance_window_ms is tolerance window size, in milliseconds
 
     # Detect beats using each beat detector in turn
     beats_primary = _signal_beats(signal, signal_type=signal_type, beat_detector=primary_detector, sampling_rate=sampling_rate)
