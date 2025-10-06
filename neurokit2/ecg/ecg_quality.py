@@ -141,7 +141,7 @@ def ecg_quality(
       ecg = nk.ecg_simulate(
           duration=duration, sampling_rate=sampling_rate, heart_rate=70, noise=0.5
       )
-      ecg_cleaned = ecg_clean(ecg, sampling_rate=sampling_rate)
+      ecg_cleaned = nk.ecg_clean(ecg, sampling_rate=sampling_rate)
       quality = nk.ecg_quality(ecg_cleaned, sampling_rate=sampling_rate, method="templatematch")
       nk.signal_plot([ecg_cleaned, quality], standardize=True)
 
