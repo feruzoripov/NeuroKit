@@ -5,7 +5,7 @@ from ..signal.signal_quality import signal_quality
 import numpy as np
 
 
-def ppg_quality(ppg_cleaned, peaks=None, sampling_rate=1000, method="templatematch", window_sec=3, overlap_sec=2):
+def ppg_quality(ppg_cleaned, peaks=None, sampling_rate=1000, method="templatematch", window_sec=3, overlap_sec=2, no_bins=16):
     """**PPG Signal Quality Assessment**
 
     Assess the quality of the PPG Signal using various methods:
@@ -42,6 +42,9 @@ def ppg_quality(ppg_cleaned, peaks=None, sampling_rate=1000, method="templatemat
       The kurtosis is a measure of the "tailedness" of the probability distribution of the signal's amplitude values.
       In Elgendi (2016), higher quality signals were generally found to have higher kurtosis values.
 
+    * The ``"entropy"`` method (based on Selvaraj et al., 2011, and inspired by Elgendi, 2016) computes the entropy of the 
+      signal in moving windows. The entropy is a measure of the randomness in the signal's amplitude values.
+
     Parameters
     ----------
     ppg_cleaned : Union[list, np.array, pd.Series]
@@ -60,6 +63,8 @@ def ppg_quality(ppg_cleaned, peaks=None, sampling_rate=1000, method="templatemat
     overlap_sec : float, optional
         Overlap between windows in seconds for windowed metrics (default: 2): ``"skewness"``: used for ``"skewness"`` 
         and ``"kurtosis"``.
+    no_bins : int, optional
+        Number of bins for ``"entropy"`` calculation (default: 16).
 
     Returns
     -------
@@ -133,9 +138,12 @@ def ppg_quality(ppg_cleaned, peaks=None, sampling_rate=1000, method="templatemat
         method = "skewness"
     elif method in ["kurtosis"]:
         method = "kurtosis"
+    elif method in ["entropy"]:
+        method = "entropy"
     else:
         raise ValueError(
-            f"Method '{method}' not recognised. Please use 'templatematch', 'disimilarity', 'ici', 'skewness', or 'kurtosis'."
+            f"Method '{method}' not recognised. Please use 'templatematch', 'disimilarity', 'ici', 'skewness', 'kurtosis', "
+            "or 'entropy'."
         )
 
     # Detect PPG peaks (if not done already, and if required for the specified quality-assessment method)
@@ -180,6 +188,16 @@ def ppg_quality(ppg_cleaned, peaks=None, sampling_rate=1000, method="templatemat
             method="kurtosis",
             window_sec=window_sec,
             overlap_sec=overlap_sec,
+        )
+    elif method == "entropy":
+        quality = signal_quality(
+            ppg_cleaned,
+            sampling_rate=sampling_rate,
+            signal_type="ppg",
+            method="entropy",
+            window_sec=window_sec,
+            overlap_sec=overlap_sec,
+            no_bins=no_bins,
         )
 
     return quality

@@ -1,5 +1,6 @@
 # - * - coding: utf-8 - * -
 import numpy as np
+from scipy.stats import entropy as scipy_entropy
 
 from ..epochs import epochs_to_df
 from ..signal import signal_interpolate, signal_cyclesegment
@@ -7,7 +8,7 @@ from ..signal import signal_interpolate, signal_cyclesegment
 
 def signal_quality(
     signal, sampling_rate=1000, cycle_inds=None, signal_type=None, method="templatematch", primary_detector=None, 
-    secondary_detector=None, tolerance_window_ms=50, window_sec=3, overlap_sec=2
+    secondary_detector=None, tolerance_window_ms=50, window_sec=3, overlap_sec=2, no_bins=16
 ):
     """**Assess quality of signal using various metrics**
 
@@ -47,6 +48,9 @@ def signal_quality(
       For the PPG, higher quality signals are generally found to have higher kurtosis values (Elgendi, 2016).
       The window length and overlap can be adjusted using the ``window_sec`` and ``overlap_sec`` parameters.
 
+    * The ``"entropy"`` method (based on Selvaraj et al., 2011, and inspired by Elgendi, 2016) computes the entropy of the 
+      signal in moving windows. The entropy is a measure of the randomness in the signal's amplitude values.
+
     Parameters
     ----------
     signal : Union[list, np.array, pd.Series]
@@ -60,7 +64,7 @@ def signal_quality(
         The signal type (e.g. 'ppg', 'ecg', or 'rsp').
     method : str
         The processing pipeline to apply. Can be one of ``"disimilarity"``, ``"templatematch"``, ``"ici"``, 
-        ``"skewness"``, or ``"kurtosis"``. The default is ``"templatematch"``.
+        ``"skewness"``, ``"kurtosis"``, or ``"entropy"``. The default is ``"templatematch"``.
     primary_detector : str
         The name of the primary cycle (i.e. beat or breath) detector (e.g. the defaults are ``"unsw"`` for the ECG, and
         ``"charlton"`` for the PPG).
@@ -75,6 +79,8 @@ def signal_quality(
     overlap_sec : float, optional
         Overlap between windows in seconds for windowed metrics (default: 2). Used for the ``"skewness"`` and ``"kurtosis"``
         methods.
+    no_bins : int
+        Number of bins for ``"entropy"`` calculation (default: 16).
     **kwargs
         Additional keyword arguments, usually specific for each method.
 
@@ -187,14 +193,18 @@ def signal_quality(
             sampling_rate=sampling_rate,tolerance_window_ms=tolerance_window_ms
         )
     elif method == "skewness":
-        quality = _quality_moment(
-            signal, sampling_rate=sampling_rate, window_sec=window_sec, overlap_sec=overlap_sec, moment=3)
+        quality = _quality_windowed_metric(
+            signal, sampling_rate=sampling_rate, window_sec=window_sec, overlap_sec=overlap_sec, metric="moment", moment=3)
     elif method == "kurtosis":
-        quality = _quality_moment(
-            signal, sampling_rate=sampling_rate, window_sec=window_sec, overlap_sec=overlap_sec, moment=4)
+        quality = _quality_windowed_metric(
+            signal, sampling_rate=sampling_rate, window_sec=window_sec, overlap_sec=overlap_sec, metric="moment", moment=4)
+    elif method == "entropy":
+        quality = _quality_windowed_metric(
+            signal, sampling_rate=sampling_rate, window_sec=window_sec, overlap_sec=overlap_sec, metric="entropy", no_bins=no_bins)
     else:
         raise ValueError(
-            f"Method '{method}' not recognised. Please use 'templatematch', 'disimilarity', 'ici', 'skewness', or 'kurtosis."
+            f"Method '{method}' not recognised. Please use "
+            "'templatematch', 'disimilarity', 'ici', 'skewness', 'kurtosis', or 'entropy'."
         )
 
     return quality
@@ -427,11 +437,13 @@ def _signal_cycles(signal, signal_type, cycle_detector, sampling_rate):
 
 
 # =============================================================================
-# Quality assessment using moment methods (skewness, kurtosis)
+# Generic code for calculating windowed metric (skewness, kurtosis, entropy)
 # =============================================================================
-def _quality_moment(signal, sampling_rate=1000, window_sec=3, overlap_sec=2, moment=3):
+def _quality_windowed_metric(
+    signal, sampling_rate=1000, window_sec=3, overlap_sec=2, metric="moment", moment=3, no_bins=16
+):
     """
-    Compute a moment-based metric (e.g., skewness or kurtosis) for signal quality in moving windows.
+    Compute a windowed metric (moment-based or entropy) for signal quality.
 
     Parameters
     ----------
@@ -443,40 +455,53 @@ def _quality_moment(signal, sampling_rate=1000, window_sec=3, overlap_sec=2, mom
         Window length in seconds (default: 3).
     overlap_sec : float
         Overlap between windows in seconds (default: 2).
+    metric : str
+        Metric to compute ("moment" for skewness/kurtosis, "entropy" for entropy).
     moment : int
-        The moment to compute (3 for skewness, 4 for kurtosis).
+        The moment to compute (used if metric="moment"; 3 for skewness, 4 for kurtosis).
+    no_bins : int
+        Number of bins for entropy calculation (used if metric="entropy"; default: 16).
 
     Returns
     -------
-    metric : np.ndarray
-        Moment values for each window.
+    metric_values : np.ndarray
+        Metric values for each window, interpolated to signal length.
     """
     window_size = int(window_sec * sampling_rate)
     step_size = int((window_sec - overlap_sec) * sampling_rate)
     n_samples = len(signal)
-    moment_values = []
+    metric_values = []
 
     for start in range(0, n_samples - window_size + 1, step_size):
         window = signal[start:start + window_size]
-        mu_x = np.mean(window)
-        omega = np.std(window)
-        if omega == 0:
-            val = 0
-        else:
-            val = np.mean(((window - mu_x) / omega) ** moment)
-        moment_values.append(val)
-
-    # Interpolate moment values to all signal samples
+        if metric == "moment":
+            mu_x = np.mean(window)
+            omega = np.std(window)
+            if omega == 0:
+                val = 0
+            else:
+                val = np.mean(((window - mu_x) / omega) ** moment)
+            metric_values.append(val)
+        elif metric == "entropy":
+            # Bin the data
+            bin_counts, _ = np.histogram(window, bins=no_bins, range=(np.min(window), np.max(window)))
+            bin_p = bin_counts / window_size
+            # Use scipy's entropy function (base e), normalize by log(1/no_bins) for consistency with previous code
+            mask = bin_p > 0
+            ent = scipy_entropy(bin_p[mask], base=np.e)
+            metric_values.append(ent)
+    
+    # interpolate
     window_centers = np.arange(0, n_samples - window_size + 1, step_size) + window_size // 2
     output = signal_interpolate(
         x_values=window_centers,
-        y_values=moment_values,
+        y_values=metric_values,
         x_new=np.arange(n_samples),
         method="previous"
     )
 
-    # Fill any NaNs at the start with the first moment value
+    # add interpolation for start
     if np.isnan(output[0]):
-        output[:window_centers[0]] = moment_values[0]
+        output[:window_centers[0]] = metric_values[0]
 
     return output
