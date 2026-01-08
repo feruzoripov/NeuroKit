@@ -30,7 +30,7 @@ jobs:
         run: uv sync --group docs --extra full
 
       - name: Build documentation
-        run: uv run sphinx-build -b html docs/ docs/_build/html
+        run: uv run sphinx-build -j 2 -b html docs/ docs/_build/html
 
       - name: Upload Artifact
         # This happens for EVERY run (Master push OR PR to Master/Dev)
