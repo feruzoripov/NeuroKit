@@ -93,12 +93,7 @@ def write_codebook_to_csv(app, exception):
     # Sort Codebook by sensor
     all_data.sort(key=operator.itemgetter(2, 0))
 
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    docs_root = current_dir
-    while os.path.basename(docs_root) != "docs" and docs_root != os.path.dirname(docs_root):
-        docs_root = os.path.dirname(docs_root)
-
-    csv_file_path = os.path.join(docs_root, "_static", "neurokit_codebook.csv")
+    csv_file_path = os.path.join(app.srcdir, "_static", "neurokit_codebook.csv")
     os.makedirs(os.path.dirname(csv_file_path), exist_ok=True)
 
     # 4. Write to file

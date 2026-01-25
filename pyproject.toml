@@ -103,8 +103,6 @@ dev = [
     "twine",
     "tox",
     "tox-uv",
-    "flake8",
-    "pylint",
     "ruff",
     "pre-commit",
     "yapf",
