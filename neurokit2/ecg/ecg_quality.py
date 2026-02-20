@@ -384,7 +384,7 @@ def _ecg_quality_zhao2018(
         if V < 1.5:
             return "Excellent"
         elif V >= 2.40:
-            return "Unnacceptable"
+            return "Unacceptable"
         else:
             return "Barely acceptable"
 
