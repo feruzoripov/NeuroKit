@@ -104,7 +104,7 @@ def signal_period(
     period[0] = np.mean(period[1:])
 
     # Interpolate all statistics to desired length.
-    if desired_length != ():
+    if not (isinstance(desired_length, tuple) and len(desired_length) == 0):
         period = signal_interpolate(
             peaks, period, x_new=np.arange(desired_length), method=interpolation_method
         )
