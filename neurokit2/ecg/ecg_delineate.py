@@ -874,7 +874,7 @@ def _onset_offset_delineator(ecg, peaks, peak_type="rpeaks", sampling_rate=1000)
             prominence = 0.20 * max(search_window)
             height = 0.0
 
-        else: # tpeak or ppeak
+        else:  # tpeaks or ppeaks
             search_window = -cwtmatr[4, index_peak - half_wave_width : index_peak]
             prominence = 0.10 * max(search_window)
             height = 0.0
