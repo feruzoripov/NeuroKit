@@ -1185,7 +1185,7 @@ def _ecg_delineate_plot(
 
     # Extract R-peaks locations  _, rpeaks = nk.ecg_peaks(ecg_signal, sampling_rate=1000)
 
-    # Delineate the ECG signal with ecg_delineate() 
+    # Delineate the ECG signal with ecg_delineate()
     signals, waves = nk.ecg_delineate(ecg_signal, rpeaks, sampling_rate=1000)
 
     # Plot the ECG signal with markings on ECG peak
