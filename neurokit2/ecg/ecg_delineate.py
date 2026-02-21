@@ -1076,10 +1076,16 @@ def _onset_offset_delineator(ecg, peaks, peak_type="rpeaks", sampling_rate=1000)
             nlast = wt_peaks[0] + index_peak
 
             if peak_type == "rpeaks":
-                if wt_peaks_data["peak_heights"][0] > 0:
-                    epsilon_offset = 0.125 * wt_peaks_data["peak_heights"][0]
+                # Use the actual (non-negated) WT value at n_last for the sign check, per Martinez (2004) eq. A.10
+                wt_nlast = cwtmatr[2, nlast]
+                if wt_nlast > 0:
+                    epsilon_offset = 0.125 * wt_nlast
                 else:
-                    epsilon_offset = 0.71 * wt_peaks_data["peak_heights"][0]
+                    epsilon_offset = 0.71 * wt_nlast
+                candidate_offsets = (
+                    np.where(cwtmatr[2, nlast : nlast + 100] < epsilon_offset)[0]
+                    + nlast
+                )
             elif peak_type == "ppeaks":
                 epsilon_offset = 0.9 * wt_peaks_data["peak_heights"][0]
             elif peak_type == "tpeaks":
@@ -1087,7 +1093,7 @@ def _onset_offset_delineator(ecg, peaks, peak_type="rpeaks", sampling_rate=1000)
             rightbase = wt_peaks_data["right_bases"][0] + index_peak
             if peak_type == "rpeaks":
                 candidate_offsets = (
-                    np.where((-cwtmatr[2, nlast : nlast + 100]) < epsilon_offset)[0]
+                    np.where(cwtmatr[2, nlast : nlast + 100] < epsilon_offset)[0]
                     + nlast
                 )
             elif peak_type in ["tpeaks", "ppeaks"]:
