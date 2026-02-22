@@ -17,6 +17,12 @@ def ppg_clean(ppg_signal, sampling_rate=1000, heart_rate=None, method="elgendi")
     * ``'nabian2018'``: Lowpass filter the signal below 40 Hz. If `heart_rate` is provided then the function
       checks whether 40 Hz is at least 10 times the cardiac frequency and less than half of the sampling frequency, and
       raises an error if not.
+    * ``'langevin2021'``: Bandpass filter between 0.7 and 3.5 Hz using a second-order Butterworth filter,
+      applied by Langevin et al. (2021) and Vorreuther et al. (2025) in an EmotiBit wearable PPG validation
+      study. Note that these filter parameters were not systematically optimized — they reflect the pipeline
+      used in a specific device-validation context. The upper cutoff (3.5 Hz) is narrower than ``'elgendi'``
+      (8 Hz), which may attenuate higher-frequency components. This method should be used primarily for research
+      purposes until further validation is conducted.
     * ``'goda2024'``: Bandpass filter the signal between 0.5 and 12 Hz using a fourth-order Chebyshev Type II filter.
 
     Parameters
@@ -29,8 +35,9 @@ def ppg_clean(ppg_signal, sampling_rate=1000, heart_rate=None, method="elgendi")
     sampling_rate : int
         The sampling frequency of ``ppg_signal`` (in Hz, i.e., samples/second). The default is 1000.
     method : str
-        The processing pipeline to apply. Can be one of ``"elgendi"`` (default), ``"nabian2018"``, ``"goda2024"``,
-        or ``"none"``. If ``"none"`` is passed, the raw signal will be returned without any cleaning.
+        The processing pipeline to apply. Can be one of ``"elgendi"`` (default), ``"nabian2018"``,
+        ``"langevin2021"``, ``"goda2024"``, or ``"none"``. If ``"none"`` is passed, the raw signal
+        will be returned without any cleaning.
 
     Returns
     -------
@@ -53,11 +60,13 @@ def ppg_clean(ppg_signal, sampling_rate=1000, heart_rate=None, method="elgendi")
       ppg = nk.ppg_simulate(heart_rate=75, duration=30)
       ppg_elgendi = nk.ppg_clean(ppg, method='elgendi')
       ppg_nabian = nk.ppg_clean(ppg, method='nabian2018', heart_rate=75)
+      ppg_langevin = nk.ppg_clean(ppg, method='langevin2021')
 
       # Plot and compare methods
       signals = pd.DataFrame({'PPG_Raw' : ppg,
                               'PPG_Elgendi' : ppg_elgendi,
-                              'PPG_Nabian' : ppg_nabian})
+                              'PPG_Nabian' : ppg_nabian,
+                              'PPG_Langevin' : ppg_langevin})
       @savefig p_ppg_clean1.png scale=100%
       signals.plot()
       @suppress
@@ -69,6 +78,13 @@ def ppg_clean(ppg_signal, sampling_rate=1000, heart_rate=None, method="elgendi")
     * Nabian, M., Yin, Y., Wormwood, J., Quigley, K. S., Barrett, L. F., & Ostadabbas, S. (2018).
       An open-source feature extraction tool for the analysis of peripheral physiological data.
       IEEE Journal of Translational Engineering in Health and Medicine, 6, 1-11.
+    * Langevin, A., Bégin, W., Lavallière, M., Beaulieu, L.-D., Menelas, B.-D. J., Gaboury, S.,
+      et al. (2021). “Criterion validation of an open-source wearable physiological sensors device,”
+      in Proceedings of the 9th International Conference on Sport Sciences Research and Technology
+      Support – icSPORTS (SciTePress), 95–105.
+    * Vorreuther, A., Tagalidou, N., & Vukelić, M. (2025). Validation of the EmotiBit wearable
+      sensor for heart-based measures under varying workload conditions. Front Neuroergonomics,
+      6, 1585469.
     * M. Elgendi, I. Norton, M. Brearley, D. Abbott, and D. Schuurmans (2013).
       Systolic peak detection in acceleration photoplethysmograms measured from emergency responders
       in tropical conditions. PLoS ONE, 8(10), 1–11.
@@ -94,13 +110,15 @@ def ppg_clean(ppg_signal, sampling_rate=1000, heart_rate=None, method="elgendi")
         clean = _ppg_clean_elgendi(ppg_signal, sampling_rate)
     elif method in ["nabian2018"]:
         clean = _ppg_clean_nabian2018(ppg_signal, sampling_rate, heart_rate=heart_rate)
+    elif method in ["langevin2021", "langevin"]:
+        clean = _ppg_clean_langevin2021(ppg_signal, sampling_rate)
     elif method in ["goda", "goda2024"]:
         clean = _ppg_clean_goda(ppg_signal, sampling_rate)
     elif method in ["none"]:
         clean = ppg_signal
     else:
         raise ValueError(
-            "`method` not found. Must be one of 'elgendi', 'nabian2018', 'goda2024', or 'none'."
+            "`method` not found. Must be one of 'elgendi', 'nabian2018', 'langevin2021', 'goda2024', or 'none'."
         )
 
     return clean
@@ -125,7 +143,11 @@ def _ppg_clean_elgendi(ppg_signal, sampling_rate):
 
 
 def _ppg_clean_nabian2018(ppg_signal, sampling_rate, heart_rate=None):
-    """Low-pass filter for continuous BP signal preprocessing, adapted from Nabian et al. (2018)."""
+    """Low-pass filter for continuous BP signal preprocessing, adapted from Nabian et al.
+
+    (2018).
+
+    """
 
     # Determine low-pass filter value
     highcut = 40
@@ -149,6 +171,23 @@ def _ppg_clean_nabian2018(ppg_signal, sampling_rate, heart_rate=None):
         method="butterworth",
     )
 
+    return filtered
+
+
+def _ppg_clean_langevin2021(ppg_signal, sampling_rate):
+    """Band-pass filter (0.7–3.5 Hz, Butterworth order 2) from Langevin et al. (2021).
+
+    Note: these parameters reflect the pipeline used in a specific EmotiBit device-validation study.
+    Use primarily for reproducibility of those results.
+    """
+    filtered = signal_filter(
+        ppg_signal,
+        sampling_rate=sampling_rate,
+        lowcut=0.7,
+        highcut=3.5,
+        method="butterworth",
+        order=2,
+    )
     return filtered
 
 

@@ -143,6 +143,24 @@ def test_ppg_clean():
     assert np.sum(fft_raw[freqs < 0.5]) > np.sum(fft_elgendi[freqs < 0.5])
     assert np.sum(fft_raw[freqs > 8]) > np.sum(fft_elgendi[freqs > 8])
 
+    # Test langevin2021 method: bandpass 0.7–3.5 Hz, Butterworth order 2
+    ppg_cleaned_langevin = nk.ppg_clean(
+        ppg, sampling_rate=sampling_rate, method="langevin2021"
+    )
+    assert ppg.size == ppg_cleaned_langevin.size
+
+    fft_langevin = np.abs(np.fft.rfft(ppg_cleaned_langevin))
+    # Low-frequency drift below 0.7 Hz should be attenuated
+    assert np.sum(fft_raw[freqs < 0.7]) > np.sum(fft_langevin[freqs < 0.7])
+    # High-frequency content above 3.5 Hz should be attenuated
+    assert np.sum(fft_raw[freqs > 3.5]) > np.sum(fft_langevin[freqs > 3.5])
+
+    # Test that "langevin" alias works identically
+    ppg_cleaned_langevin_alias = nk.ppg_clean(
+        ppg, sampling_rate=sampling_rate, method="langevin"
+    )
+    assert np.allclose(ppg_cleaned_langevin, ppg_cleaned_langevin_alias)
+
 
 @pytest.mark.parametrize(
     "method_cleaning, method_peaks",
