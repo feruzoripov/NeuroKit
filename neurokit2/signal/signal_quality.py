@@ -1,5 +1,6 @@
 # - * - coding: utf-8 - * -
 import numpy as np
+from scipy.stats import entropy as scipy_entropy
 
 from ..epochs import epochs_to_df
 from ..signal import signal_interpolate, signal_cyclesegment
@@ -14,8 +15,11 @@ def signal_quality(
     primary_detector=None,
     secondary_detector=None,
     tolerance_window_ms=50,
+    window_sec=3,
+    overlap_sec=2,
+    no_bins=16,
 ):
-    """**Assess quality of signal by comparing individual cycle morphologies with a template**
+    """**Assess quality of signal using various metrics**
 
     Assess the quality of a quasi-periodic signal (e.g. PPG, ECG or RSP) using the specified method. You can pass an
     unfiltered signal as an input, but typically a filtered signal (e.g. cleaned using ``ppg_clean()``, ``ecg_clean()`` or
@@ -44,6 +48,18 @@ def signal_quality(
       proposed bSQI approach. The resulting quality signal is 1-padded, with all samples before the first cycle
       and after the last cycle set to 1.
 
+    * The ``"skewness"`` method (based on Selveraj, 2011 and Elgendi, 2016) computes the skewness of the signal in moving
+      windows. The skewness is a measure of the asymmetry of the probability distribution of the signal's amplitude values.
+      For the PPG, higher quality signals were generally found to have higher skewness values (Elgendi, 2016).
+      The window length and overlap can be adjusted using the ``window_sec`` and ``overlap_sec`` parameters.
+
+    * The ``"kurtosis"`` method (based on Selveraj, 2011 and Elgendi, 2016) computes the kurtosis of the signal in moving
+      windows. The kurtosis is a measure of the "tailedness" of the probability distribution of the signal's amplitude values.
+      For the PPG, higher quality signals are generally found to have higher kurtosis values (Elgendi, 2016).
+      The window length and overlap can be adjusted using the ``window_sec`` and ``overlap_sec`` parameters.
+
+    * The ``"entropy"`` method (based on Selvaraj et al., 2011, and inspired by Elgendi, 2016) computes the entropy of the
+      signal in moving windows. The entropy is a measure of the randomness in the signal's amplitude values.
 
     Parameters
     ----------
@@ -57,8 +73,8 @@ def signal_quality(
     signal_type : str
         The signal type (e.g. 'ppg', 'ecg', or 'rsp').
     method : str
-        The processing pipeline to apply. Can be one of ``"dissimilarity"``, ``"templatematch"``. The default is
-        ``"templatematch"``.
+        The processing pipeline to apply. Can be one of ``"templatematch"``, ``"dissimilarity"``, ``"ici"``,
+        ``"skewness"``, ``"kurtosis"``, or ``"entropy"``. The default is ``"templatematch"``.
     primary_detector : str
         The name of the primary cycle (i.e. beat or breath) detector (e.g. the defaults are ``"unsw"`` for the ECG, and
         ``"charlton"`` for the PPG).
@@ -68,6 +84,13 @@ def signal_quality(
     tolerance_window_ms : int
         The tolerance window size (in milliseconds) for use with the "ici" method when assessing agreement between
         primary and secondary cycle detectors.
+    window_sec : float, optional
+        Window length in seconds for windowed metrics (default: 3). Used for the ``"skewness"`` and ``"kurtosis"`` methods.
+    overlap_sec : float, optional
+        Overlap between windows in seconds for windowed metrics (default: 2). Used for the ``"skewness"`` and ``"kurtosis"``
+        methods.
+    no_bins : int
+        Number of bins for ``"entropy"`` calculation (default: 16).
     **kwargs
         Additional keyword arguments, usually specific for each method.
 
@@ -75,7 +98,9 @@ def signal_quality(
     -------
     quality : array
         Vector containing the quality index ranging from 0 to 1 for ``"templatematch"`` method,
-        or an unbounded value (where 0 indicates high quality) for ``"dissimilarity"`` method.
+        or an unbounded value (where 0 indicates high quality) for ``"dissimilarity"`` method,
+        or zeros and ones (where 1 indicates high quality) for ``"ici"`` method,
+        or an unbounded value for ``"skewness"``, ``"kurtosis"``, or ``"entropy"`` methods.
 
     See Also
     --------
@@ -89,6 +114,10 @@ def signal_quality(
       Applications in reliability measure for pulse oximetry. Informatics in Medicine Unlocked, 16, 100222.
     * Ho, S.Y.S et al. (2025). "Accurate RR-interval extraction from single-lead, telehealth electrocardiogram signals.
       medRxiv, 2025.03.10.25323655. https://doi.org/10.1101/2025.03.10.25323655
+    * Elgendi, M. et al. (2016). "Optimal signal quality index for photoplethysmogram signals".
+      Bioengineering, 3(4), 1–15. doi: https://doi.org/10.3390/bioengineering3040021
+    * Selvaraj, N. et al. (2011). "Statistical approach for the detection of motion/noise artifacts in Photoplethysmogram".
+      Proc IEEE EMBC; pp. 4972–4975.
 
     Examples
     --------
@@ -121,7 +150,7 @@ def signal_quality(
       nk.signal_plot([ecg, quality], standardize=True)
       plt.close()
 
-    * **Example 2:** Using template-matching method to assess RSP signal quality
+    * **Example 3:** Using template-matching method to assess RSP signal quality
 
     .. ipython:: python
 
@@ -135,6 +164,19 @@ def signal_quality(
       nk.signal_plot([rsp_cleaned, quality], standardize=True)
       plt.close()
 
+    * **Example 4:** Using skewness method to assess PPG signal quality
+
+    .. ipython:: python
+
+      import neurokit2 as nk
+
+      sampling_rate = 100
+      ppg = nk.ppg_simulate(duration=30, sampling_rate=sampling_rate, heart_rate=80)
+      ppg_cleaned = nk.ppg_clean(ppg, sampling_rate=sampling_rate)
+      quality = nk.signal_quality(ppg_cleaned, sampling_rate=sampling_rate, signal_type="ppg", method="skewness")
+      nk.signal_plot([ppg_cleaned, quality], standardize=True)
+      plt.close()
+
     """
 
     # Check inputs
@@ -142,18 +184,21 @@ def signal_quality(
         raise ValueError(
             "`signal_type` must be specified (e.g. 'ppg', 'ecg', or 'rsp')."
         )
+
+    # Standardize inputs first so all checks are case-insensitive
+    signal_type = signal_type.lower()
+    method = method.lower()
+
     if method == "ici" and (signal_type != "ppg" and signal_type != "ecg"):
         raise ValueError(
             "`method` 'ici' is only supported for 'ppg' and 'ecg' signal types."
         )
-    if method != "ici" and (cycle_inds is None or len(cycle_inds) == 0):
+    if method not in ["ici", "skewness", "kurtosis", "entropy"] and (
+        cycle_inds is None or len(cycle_inds) == 0
+    ):
         raise ValueError(
             "`templatematch` and `dissimilarity` require at least one detected peak."
         )
-
-    # Standardize inputs
-    signal_type = signal_type.lower()  # remove capitalised letters
-    method = method.lower()  # remove capitalised letters
 
     # Run selected quality assessment method
     if method in [
@@ -181,10 +226,37 @@ def signal_quality(
             sampling_rate=sampling_rate,
             tolerance_window_ms=tolerance_window_ms,
         )
+    elif method == "skewness":
+        quality = _quality_windowed_metric(
+            signal,
+            sampling_rate=sampling_rate,
+            window_sec=window_sec,
+            overlap_sec=overlap_sec,
+            metric="moment",
+            moment=3,
+        )
+    elif method == "kurtosis":
+        quality = _quality_windowed_metric(
+            signal,
+            sampling_rate=sampling_rate,
+            window_sec=window_sec,
+            overlap_sec=overlap_sec,
+            metric="moment",
+            moment=4,
+        )
+    elif method == "entropy":
+        quality = _quality_windowed_metric(
+            signal,
+            sampling_rate=sampling_rate,
+            window_sec=window_sec,
+            overlap_sec=overlap_sec,
+            metric="entropy",
+            no_bins=no_bins,
+        )
     else:
         raise ValueError(
             f"The `{method}` method does not exist in signal_quality. "
-            "Please choose one of: `templatematch`, `dissimilarity` or `ici`"
+            "Please choose one of: `templatematch`, `dissimilarity`, `ici`, `skewness`, `kurtosis`, or `entropy`."
         )
 
     return quality
@@ -437,3 +509,84 @@ def _signal_cycles(signal, signal_type, cycle_detector, sampling_rate):
         cycles = info["PPG_Peaks"]
 
     return cycles
+
+
+# =============================================================================
+# Generic code for calculating windowed metric (skewness, kurtosis, entropy)
+# =============================================================================
+def _quality_windowed_metric(
+    signal,
+    sampling_rate=1000,
+    window_sec=3,
+    overlap_sec=2,
+    metric="moment",
+    moment=3,
+    no_bins=16,
+):
+    """
+    Compute a windowed metric (moment-based or entropy) for signal quality.
+
+    Parameters
+    ----------
+    signal : array-like
+        Cleaned signal.
+    sampling_rate : int
+        Sampling frequency (Hz).
+    window_sec : float
+        Window length in seconds (default: 3).
+    overlap_sec : float
+        Overlap between windows in seconds (default: 2).
+    metric : str
+        Metric to compute ("moment" for skewness/kurtosis, "entropy" for entropy).
+    moment : int
+        The moment to compute (used if metric="moment"; 3 for skewness, 4 for kurtosis).
+    no_bins : int
+        Number of bins for entropy calculation (used if metric="entropy"; default: 16).
+
+    Returns
+    -------
+    metric_values : np.ndarray
+        Metric values for each window, interpolated to signal length.
+    """
+    window_size = int(window_sec * sampling_rate)
+    step_size = int((window_sec - overlap_sec) * sampling_rate)
+    n_samples = len(signal)
+    metric_values = []
+
+    for start in range(0, n_samples - window_size + 1, step_size):
+        window = signal[start : start + window_size]
+        if metric == "moment":
+            mu_x = np.mean(window)
+            omega = np.std(window)
+            if omega == 0:
+                val = 0
+            else:
+                val = np.mean(((window - mu_x) / omega) ** moment)
+            metric_values.append(val)
+        elif metric == "entropy":
+            # Bin the data
+            bin_counts, _ = np.histogram(
+                window, bins=no_bins, range=(np.min(window), np.max(window))
+            )
+            bin_p = bin_counts / window_size
+            # Use scipy's entropy function (base e), normalize by log(1/no_bins) for consistency with previous code
+            mask = bin_p > 0
+            ent = scipy_entropy(bin_p[mask], base=np.e)
+            metric_values.append(ent)
+
+    # interpolate
+    window_centers = (
+        np.arange(0, n_samples - window_size + 1, step_size) + window_size // 2
+    )
+    output = signal_interpolate(
+        x_values=window_centers,
+        y_values=metric_values,
+        x_new=np.arange(n_samples),
+        method="previous",
+    )
+
+    # add interpolation for start
+    if np.isnan(output[0]):
+        output[: window_centers[0]] = metric_values[0]
+
+    return output
