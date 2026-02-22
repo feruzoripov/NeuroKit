@@ -114,7 +114,7 @@ def ppg_quality(ppg_cleaned, peaks=None, sampling_rate=1000, method="templatemat
             sampling_rate=sampling_rate,
             method=method,
         )
-    elif method=="ici":
+    elif method == "ici":
         # Assess quality using Ho2025 method (IBI accuracy prediction)
         quality = signal_quality(
             ppg_cleaned,

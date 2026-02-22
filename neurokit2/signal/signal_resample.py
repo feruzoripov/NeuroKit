@@ -158,17 +158,17 @@ def _resample_poly(signal, desired_length):
 
 
 def _resample_pandas(signal, desired_length):
-    # Convert to Time Series using microsecond precision to avoid pandas unit incompatibility
-    # (a non-integer number of nanoseconds per step is incompatible with a us-resolution index)
-    index = pd.date_range("20131212", freq="us", periods=len(signal))
+    # Scale the index so both the original and target step sizes are integer nanoseconds:
+    # original step = desired_length ns, new step = len(signal) ns.  This guarantees an
+    # exact integer-nanosecond resampling frequency for every up- and down-sampling ratio,
+    # avoiding pandas 2.x "incompatible unit" errors that arise with fractional μs steps.
+    L = len(signal)
+    D = int(desired_length)
+    index = pd.date_range("20131212", freq=str(D) + "ns", periods=L)
     resampled_signal = pd.Series(signal, index=index)
 
-    # Create resampling factor in whole microseconds
-    factor_us = int(np.round(1e3 / (desired_length / len(signal))))
-    resampling_factor = str(factor_us) + "us"
-
     # Resample
-    resampled_signal = resampled_signal.resample(resampling_factor).bfill().values
+    resampled_signal = resampled_signal.resample(str(L) + "ns").bfill().values
 
     # Sanitize
     resampled_signal = _resample_sanitize(resampled_signal, desired_length)
