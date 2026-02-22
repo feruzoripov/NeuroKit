@@ -1,7 +1,6 @@
 # - * - coding: utf-8 - * -
 
 from .ppg_peaks import ppg_peaks
-from .ppg_clean import ppg_clean
 from ..signal.signal_quality import signal_quality
 from ..signal.signal_interpolate import signal_interpolate
 from ..signal.signal_power import signal_power
