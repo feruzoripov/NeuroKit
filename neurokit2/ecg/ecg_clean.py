@@ -20,17 +20,16 @@ def ecg_clean(ecg_signal, sampling_rate=1000, method="neurokit", **kwargs):
       SR). The 0.67 Hz cutoff value was selected based on the fact that there are no morphological
       features below the heartrate (assuming a minimum heart rate of 40 bpm).
     * ``'pantompkins1985'``: Method used in Pan & Tompkins (1985): band-pass filter between 5 and 15 Hz
-      using a Butterworth filter (with zi provided - initial zero-input response provided to avoid 
+      using a Butterworth filter (with zi provided - initial zero-input response provided to avoid
       transient artifact at beginning).
     * ``'hamilton2002'``: Method used in Hamilton (2002): band-pass filter between 8 and 16 Hz
       using a Butterworth filter (with zi provided).
     * ``'elgendi2010'``: Method used in Elgendi et al. (2010): band-pass filter between 8 and 20 Hz
-      using a Butterworth filter (with zi provided). 
+      using a Butterworth filter (with zi provided).
     * ``'engzeemod2012'``: Method used in Engelse & Zeelenberg (1979). **Please help providing a
       better description!**
     * ``'vg'``: Method used in Visibility Graph Based Detection Emrich et al. (2023)
       and Koka et al. (2022). A 4.0 Hz high-pass butterworth filter (order = 2).
-    * ``'langevin2021'``: Method according to Langevin et al. (2021) implemented by Vorreuther et al. (2025)
 
     Parameters
     ----------
@@ -41,7 +40,7 @@ def ecg_clean(ecg_signal, sampling_rate=1000, method="neurokit", **kwargs):
     method : str
         The processing pipeline to apply. Can be one of ``"neurokit"`` (default),
         ``"biosppy"``, ``"pantompkins1985"``, ``"hamilton2002"``, ``"elgendi2010"``,
-        ``"engzeemod2012"``, ``'vg'``, `"langevin2021"``.
+        ``"engzeemod2012"``, ``'vg'``.
     **kwargs
         Other arguments to be passed to specific methods.
 
@@ -74,8 +73,7 @@ def ecg_clean(ecg_signal, sampling_rate=1000, method="neurokit", **kwargs):
           "ECG_Elgendi" : nk.ecg_clean(ecg, sampling_rate=250, method="elgendi2010"),
           "ECG_EngZeeMod" : nk.ecg_clean(ecg, sampling_rate=250, method="engzeemod2012"),
           "ECG_VG" : nk.ecg_clean(ecg, sampling_rate=250, method="vg"),
-          "ECG_TC" : nk.ecg_clean(ecg, sampling_rate=250, method="templateconvolution"),
-          "ECG_Langevin" : nk.ecg_clean(ecg, sampling_rate=250, method="langevin2021")
+          "ECG_TC" : nk.ecg_clean(ecg, sampling_rate=250, method="templateconvolution")
       })
 
       @savefig p_ecg_clean.png scale=100%
@@ -98,13 +96,7 @@ def ecg_clean(ecg_signal, sampling_rate=1000, method="neurokit", **kwargs):
     * Emrich, J., Koka, T., Wirth, S., & Muma, M. (2023), Accelerated Sample-Accurate R-Peak
       Detectors Based on Visibility Graphs. 31st European Signal Processing Conference
       (EUSIPCO), 1090-1094, doi: 10.23919/EUSIPCO58844.2023.10290007
-    * Langevin, A., Bégin, W., Lavallière, M., Beaulieu, L.-D., Menelas, B.-D. J., Gaboury, S.,
-      et al. (2021). “Criterion validation of an open-source wearable physiological sensors device,”
-      in Proceedings of the 9th International Conference on Sport Sciences Research and Technology
-      Support – icSPORTS (SciTePress), 95–105.
-    * Vorreuther, A., Tagalidou, N., & Vukelić, M. (2025). Validation of the EmotiBit wearable
-      sensor for heart-based measures under varying workload conditions. Front Neuroergonomics,
-      6, 1585469. DOI: 10.3389/fnrgo.2025.1585469
+
 
     """
     ecg_signal = as_vector(ecg_signal)
@@ -143,8 +135,6 @@ def ecg_clean(ecg_signal, sampling_rate=1000, method="neurokit", **kwargs):
         clean = _ecg_clean_vgraph(ecg_signal, sampling_rate)
     elif method in ["templateconvolution"]:
         clean = _ecg_clean_templateconvolution(ecg_signal, sampling_rate)
-    elif method in ["langevin", "langevin2021"]:
-        clean = _ecg_clean_langevin(ecg_signal, sampling_rate)
     elif method in [
         "christov",
         "christov2004",
@@ -182,7 +172,9 @@ def _ecg_clean_nk(ecg_signal, sampling_rate=1000, **kwargs):
         order=5,
     )
 
-    clean = signal_filter(signal=clean, sampling_rate=sampling_rate, method="powerline", **kwargs)
+    clean = signal_filter(
+        signal=clean, sampling_rate=sampling_rate, method="powerline", **kwargs
+    )
     return clean
 
 
@@ -206,7 +198,9 @@ def _ecg_clean_biosppy(ecg_signal, sampling_rate=1000):
 
     #   -> get_filter()
     #     -> _norm_freq()
-    frequency = 2 * np.array(frequency) / sampling_rate  # Normalize frequency to Nyquist Frequency (Fs/2).
+    frequency = (
+        2 * np.array(frequency) / sampling_rate
+    )  # Normalize frequency to Nyquist Frequency (Fs/2).
 
     #     -> get coeffs
     a = np.array([1])
@@ -370,10 +364,14 @@ def _ecg_clean_templateconvolution(ecg_signal, sampling_rate=1000):
     )
 
     # Detect peaks
-    peaks, _ = scipy.signal.find_peaks(filtered, distance=sampling_rate / 3, height=0.5 * np.std(filtered))
+    peaks, _ = scipy.signal.find_peaks(
+        filtered, distance=sampling_rate / 3, height=0.5 * np.std(filtered)
+    )
     peaks = peaks[peaks + 0.6 * sampling_rate < len(ecg_signal)]
 
-    idx = [np.arange(p - int(sampling_rate / 2), p + int(sampling_rate / 2)) for p in peaks]
+    idx = [
+        np.arange(p - int(sampling_rate / 2), p + int(sampling_rate / 2)) for p in peaks
+    ]
     epochs = np.array([filtered[i] for i in idx])
     qrs = np.mean(epochs, axis=0)
 
@@ -390,20 +388,3 @@ def _ecg_clean_templateconvolution(ecg_signal, sampling_rate=1000):
     # qrs = signal_resample(qrs, desired_length=sampling_rate)
 
     return scipy.signal.convolve(ecg_signal, qrs, mode="same")
-
-
-# =============================================================================
-# Langevin
-# =============================================================================
-def _ecg_clean_langevin(ecg_signal, sampling_rate):
-    """Notch filter by Langevin et al.
-
-    (2021) implemented according to Vorreuther et al. ( 2025).
-
-    """
-    clean = signal_filter(
-        signal=ecg_signal,
-        sampling_rate=sampling_rate,
-        method="iirnotch",
-    )
-    return clean

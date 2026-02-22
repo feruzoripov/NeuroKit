@@ -17,6 +17,12 @@ def ppg_clean(ppg_signal, sampling_rate=1000, heart_rate=None, method="elgendi")
     * ``'nabian2018'``: Lowpass filter the signal below 40 Hz. If `heart_rate` is provided then the function
       checks whether 40 Hz is at least 10 times the cardiac frequency and less than half of the sampling frequency, and
       raises an error if not.
+    * ``'langevin2021'``: Bandpass filter between 0.7 and 3.5 Hz using a second-order Butterworth filter,
+      applied by Langevin et al. (2021) and Vorreuther et al. (2025) in an EmotiBit wearable PPG validation
+      study. Note that these filter parameters were not systematically optimized — they reflect the pipeline
+      used in a specific device-validation context. The upper cutoff (3.5 Hz) is narrower than ``'elgendi'``
+      (8 Hz), which may attenuate higher-frequency components. This method should be used primarily for research
+      purposes until further validation is conducted.
     * ``'goda2024'``: Bandpass filter the signal between 0.5 and 12 Hz using a fourth-order Chebyshev Type II filter.
 
     Parameters
@@ -169,10 +175,10 @@ def _ppg_clean_nabian2018(ppg_signal, sampling_rate, heart_rate=None):
 
 
 def _ppg_clean_langevin2021(ppg_signal, sampling_rate):
-    """Low-pass filter for continuous BP signal preprocessing, adapted from Langevin et al.
+    """Band-pass filter (0.7–3.5 Hz, Butterworth order 2) from Langevin et al. (2021).
 
-    (2021).
-
+    Note: these parameters reflect the pipeline used in a specific EmotiBit device-validation study.
+    Use primarily for reproducibility of those results.
     """
     filtered = signal_filter(
         ppg_signal,
@@ -181,7 +187,6 @@ def _ppg_clean_langevin2021(ppg_signal, sampling_rate):
         highcut=3.5,
         method="butterworth",
         order=2,
-        show=False,
     )
     return filtered
 

@@ -152,6 +152,8 @@ def signal_filter(
         )
     elif method in ["powerline"]:
         filtered = _signal_filter_powerline(signal_sanitized, sampling_rate, powerline)
+    elif method in ["iirnotch"]:
+        filtered = _signal_filter_iirnotch(signal_sanitized, sampling_rate)
     else:
 
         # Sanity checks
@@ -184,8 +186,6 @@ def signal_filter(
                 highcut,
                 window_size=window_size,
             )
-        elif method in ["iirnotch"]:
-            filtered = _signal_filter_iirnotch(signal_sanitized, sampling_rate)
         elif method in ["chebyshevii"]:
             filtered = _signal_filter_chebyshevii(
                 signal_sanitized, sampling_rate, lowcut, highcut, order
@@ -370,7 +370,7 @@ def _signal_filter_powerline(signal, sampling_rate, powerline=50):
 def _signal_filter_iirnotch(signal, sampling_rate, cutoff=0.05, Q=0.005):
     """Apply infinite impulse response notch filter"""
 
-    b, a = scipy.signal.iirnotch(cutoff=cutoff, Q=Q, fs=sampling_rate)
+    b, a = scipy.signal.iirnotch(w0=cutoff, Q=Q, fs=sampling_rate)
     y = scipy.signal.filtfilt(b, a, signal)
 
     return y
