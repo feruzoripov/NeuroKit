@@ -75,7 +75,7 @@ def ppg_findpeaks(
 
     """
     method = method.lower()
-    if method in ["elgendi"]:
+    if method in ["elgendi", "elgendi2013"]:
         peaks = _ppg_findpeaks_elgendi(ppg_cleaned, sampling_rate, show=show, **kwargs)
     elif method in ["msptd", "bishop2018", "bishop"]:
         peaks, _ = _ppg_findpeaks_bishop(ppg_cleaned, show=show, **kwargs)
@@ -485,6 +485,10 @@ def _ppg_findpeaks_charlton(
     # Tidy up detected peaks and onsets (by ordering them and only retaining unique ones)
     peaks = sorted(set(peaks))
     onsets = sorted(set(onsets))
+
+    # convert to numpy arrays
+    peaks = np.asarray(peaks).astype(int)
+    onsets = np.asarray(onsets).astype(int)
 
     # Plot results (optional)
     if show:
