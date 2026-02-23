@@ -25,10 +25,10 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Install dependencies
-        run: |
-          uv pip install "popularipy @ git+https://github.com/DominiqueMakowski/popularipy"
-          uv sync --extra full --group dev
+      # - name: Install dependencies
+      #   run: |
+      #     uv pip install "popularipy @ git+https://github.com/DominiqueMakowski/popularipy"
+      #     uv sync --extra full --group dev
 
       - name: Run README_examples
         run: uv run python docs/readme/README_examples.py
