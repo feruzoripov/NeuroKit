@@ -37,6 +37,7 @@ dependencies = [
     "scikit-learn>=1.0.0",
     "matplotlib>=3.5.0",
     "PyWavelets>=1.4.0",
+    "setuptools<82.0.0",
 ]
 
 [project.optional-dependencies]
