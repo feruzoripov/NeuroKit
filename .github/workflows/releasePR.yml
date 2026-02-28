@@ -7,9 +7,8 @@ on:
     workflow_dispatch:
 
 permissions:
-    contents: write
+    contents: read
     id-token: write
-    attestations: write
 
 jobs:
     # --- STAGE 1: Test Release ---
