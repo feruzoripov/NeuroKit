@@ -2683,7 +2683,7 @@ requires-dist = [
     { name = "mne", marker = "extra == 'full'" },
     { name = "numpy", specifier = ">=2.0.0" },
     { name = "opencv-python", marker = "extra == 'full'" },
-    { name = "pandas", specifier = "<3.0.0" },
+    { name = "pandas", specifier = ">=2.0.0" },
     { name = "pillow", marker = "extra == 'full'" },
     { name = "plotly", marker = "extra == 'full'" },
     { name = "pyemd", marker = "extra == 'full'" },

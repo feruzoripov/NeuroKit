@@ -130,19 +130,13 @@ packages = ["neurokit2"]
 version-file = "neurokit2/_version.py"
 
 [tool.hatch.build.targets.sdist]
-exclude = [
-  "/.direnv",
-  "/.venv*",
-  "/.tox",
-  "/.pytest_cache",
-  "/.python_cache",
-  "/.coverage",
-  "/coverage.xml",
-  "/data",
-  "/flake.nix",
-  "/flake.lock",
-  "tests/",
-  "docs/"
+include = [
+  "/neurokit2",
+  "/README.rst",
+  "/LICENSE",
+  "/AUTHORS.rst",
+  "/NEWS.rst",
+  "/CITATION.cff"
 ]
 
 [tool.uv]
