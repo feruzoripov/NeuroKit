@@ -19,7 +19,7 @@ def test_read_acqknowledge():
 
     df, sampling_rate = nk.read_acqknowledge(os.path.join(path_data, "acqnowledge.acq"), sampling_rate="max")
     assert sampling_rate == 4000
-    assert type(sampling_rate) is int
+    assert isinstance(sampling_rate, int)
 
 
 def test_data():
