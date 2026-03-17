@@ -84,9 +84,9 @@ def read_acqknowledge(filename, sampling_rate="max", resample_method="interpolat
         else:
             sampling_rate = max_freq
             warn(
-                f"Automatic sampling rate conversion to int failed"
-                f"Sampling rate is {sampling_rate}, of type {type(sampling_rate)}"
-                f"This may cause errors or unexpected behaviours of other neurokit functions",
+                f"Automatic sampling rate conversion to int failed.\n"
+                f"Sampling rate is {sampling_rate}, of type {type(sampling_rate)},\n"
+                f"This may cause errors or unexpected behaviours of other neurokit functions.",
                 category=NeuroKitWarning,
             )
 
