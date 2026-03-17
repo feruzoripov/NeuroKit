@@ -1,11 +1,12 @@
 import os
 from collections import Counter
+from warnings import warn
 
 import numpy as np
 import pandas as pd
 
 from ..signal import signal_resample
-
+from ..misc import NeuroKitWarning
 
 def read_acqknowledge(filename, sampling_rate="max", resample_method="interpolation", impute_missing=True):
     """**Read and format a BIOPAC's AcqKnowledge file into a pandas' dataframe**
@@ -77,7 +78,17 @@ def read_acqknowledge(filename, sampling_rate="max", resample_method="interpolat
         freq_list = []
         for channel in file.named_channels:
             freq_list.append(file.named_channels[channel].samples_per_second)
-        sampling_rate = np.max(freq_list)
+        max_freq = np.max(freq_list)
+        if np.isfinite(max_freq):
+            sampling_rate = max_freq.astype(int).item()
+        else:
+            sampling_rate = max_freq
+            warn(
+                f"Automatic sampling rate conversion to int failed"
+                f"Sampling rate is {sampling_rate}, of type {type(sampling_rate)}"
+                f"This may cause errors or unexpected behaviours of other neurokit functions",
+                category=NeuroKitWarning,
+            )
 
     # Counter for checking duplicate channel names
     channel_counter = Counter()

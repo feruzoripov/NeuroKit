@@ -15,9 +15,11 @@ path_data = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file_
 def test_read_acqknowledge():
     df, sampling_rate = nk.read_acqknowledge(os.path.join(path_data, "acqnowledge.acq"), sampling_rate=2000)
     assert sampling_rate == 2000
+    assert type(sampling_rate) is int
 
     df, sampling_rate = nk.read_acqknowledge(os.path.join(path_data, "acqnowledge.acq"), sampling_rate="max")
     assert sampling_rate == 4000
+    assert type(sampling_rate) is int
 
 
 def test_data():
