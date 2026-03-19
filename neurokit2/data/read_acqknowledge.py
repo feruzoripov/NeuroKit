@@ -8,6 +8,7 @@ import pandas as pd
 from ..misc import NeuroKitWarning
 from ..signal import signal_resample
 
+
 def read_acqknowledge(filename, sampling_rate="max", resample_method="interpolation", impute_missing=True):
     """**Read and format a BIOPAC's AcqKnowledge file into a pandas' dataframe**
 
