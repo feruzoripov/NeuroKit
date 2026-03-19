@@ -76,10 +76,46 @@ def test_ecg_peaks():
 
 def test_ecg_process():
     sampling_rate = 1000
-    noise = 0.05
 
-    ecg = nk.ecg_simulate(sampling_rate=sampling_rate, noise=noise, random_state=4)
-    _ = nk.ecg_process(ecg, sampling_rate=sampling_rate, method="neurokit")
+    # Test 1: Normal ECG with noise
+    ecg = nk.ecg_simulate(sampling_rate=sampling_rate, noise=0.05, random_state=4)
+    signals, info = nk.ecg_process(ecg, sampling_rate=sampling_rate, method="neurokit")
+    assert len(info["ECG_R_Peaks"]) > 0, "Should detect R-peaks in normal ECG"
+    assert signals.shape[0] == len(ecg), "Signal length should match input"
+    assert "ECG_Rate" in signals.columns, "Should have ECG_Rate column"
+    assert "ECG_Quality" in signals.columns, "Should have ECG_Quality column"
+    # When R-peaks are detected, results should NOT be NaN
+    assert not np.all(np.isnan(signals["ECG_Rate"])), "ECG_Rate should not be all NaN when R-peaks are detected"
+    assert not np.all(np.isnan(signals["ECG_Quality"])), "ECG_Quality should not be all NaN when R-peaks are detected"
+    assert np.any(signals["ECG_R_Peaks"] == 1), "ECG_R_Peaks should contain some 1s when R-peaks are detected"
+
+    # Test 2: Different heart rates
+    for heart_rate in [50, 70, 120]:
+        ecg = nk.ecg_simulate(duration=10, sampling_rate=sampling_rate, heart_rate=heart_rate, random_state=42)
+        signals, info = nk.ecg_process(ecg, sampling_rate=sampling_rate)
+        assert len(info["ECG_R_Peaks"]) > 0, f"Should detect R-peaks at {heart_rate} BPM"
+        assert np.nanmean(signals["ECG_Rate"]) > 40, f"Heart rate should be reasonable at {heart_rate} BPM"
+        # When R-peaks are detected, results should NOT be NaN
+        assert not np.all(np.isnan(signals["ECG_Rate"])), f"ECG_Rate should not be all NaN at {heart_rate} BPM"
+        assert not np.all(np.isnan(signals["ECG_Quality"])), f"ECG_Quality should not be all NaN at {heart_rate} BPM"
+
+    # Test 3: Different noise levels
+    for noise_level in [0.01, 0.05, 0.1]:
+        ecg = nk.ecg_simulate(duration=10, sampling_rate=sampling_rate, noise=noise_level, random_state=42)
+        signals, info = nk.ecg_process(ecg, sampling_rate=sampling_rate)
+        assert len(info["ECG_R_Peaks"]) > 0, f"Should detect R-peaks with noise={noise_level}"
+        # When R-peaks are detected, results should NOT be NaN
+        assert not np.all(np.isnan(signals["ECG_Rate"])), f"ECG_Rate should not be all NaN with noise={noise_level}"
+        assert not np.all(np.isnan(signals["ECG_Quality"])), f"ECG_Quality should not be all NaN with noise={noise_level}"
+
+    # Test 4: Different methods
+    for method in ["neurokit", "pantompkins1985"]:
+        ecg = nk.ecg_simulate(duration=10, sampling_rate=sampling_rate, random_state=42)
+        signals, info = nk.ecg_process(ecg, sampling_rate=sampling_rate, method=method)
+        assert len(info["ECG_R_Peaks"]) > 0, f"Should detect R-peaks with method={method}"
+        # When R-peaks are detected, results should NOT be NaN
+        assert not np.all(np.isnan(signals["ECG_Rate"])), f"ECG_Rate should not be all NaN with method={method}"
+        assert not np.all(np.isnan(signals["ECG_Quality"])), f"ECG_Quality should not be all NaN with method={method}"
 
 
 def test_ecg_plot():
