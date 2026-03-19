@@ -1,7 +1,9 @@
 import importlib
+import warnings
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import pytest
 
 import neurokit2 as nk
@@ -351,3 +353,109 @@ def test_ecg_intervalrelated():
 
     assert (elem in columns for elem in np.array(features_dict.columns.values, dtype=str))
     assert features_dict.shape[0] == 2  # Number of rows
+
+
+def test_ecg_process_no_rpeaks():
+    """Test that ecg_process handles cases where no R-peaks are detected."""
+
+    # Test with flatline ECG (no peaks)
+    ecg_flat = np.zeros(1000)
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        signals, info = nk.ecg_process(ecg_flat, sampling_rate=1000)
+
+        # Check that no R-peaks were found
+        assert len(info["ECG_R_Peaks"]) == 0, "Expected no R-peaks to be found"
+
+        # Check that appropriate warnings were issued
+        neurokit_warnings = [warning for warning in w if "No R-peaks were detected" in str(warning.message)]
+        assert len(neurokit_warnings) >= 3, f"Expected at least 3 warnings, got {len(neurokit_warnings)}"
+
+        # Check that signals DataFrame has expected structure
+        assert signals.shape[0] == len(ecg_flat), "Signal length mismatch"
+        assert "ECG_Rate" in signals.columns, "Missing ECG_Rate column"
+        assert "ECG_Quality" in signals.columns, "Missing ECG_Quality column"
+
+        # Check that rate and quality are NaN when no peaks are detected
+        assert np.all(np.isnan(signals["ECG_Rate"])), "ECG_Rate should be NaN when no peaks detected"
+        assert np.all(np.isnan(signals["ECG_Quality"])), "ECG_Quality should be NaN when no peaks detected"
+
+        # Check that peak marker columns are zero-filled
+        assert np.all(signals["ECG_R_Peaks"] == 0), "ECG_R_Peaks should be zero-filled when no peaks detected"
+
+
+def test_ecg_delineate_no_rpeaks():
+    """Test that ecg_delineate handles empty R-peaks array."""
+
+    # Create flatline ECG and get empty R-peaks
+    ecg_flat = np.zeros(1000)
+    cleaned = nk.ecg_clean(ecg_flat, sampling_rate=1000)
+    peaks, info = nk.ecg_peaks(cleaned, sampling_rate=1000)
+    empty_rpeaks = info["ECG_R_Peaks"]
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+
+        # Test ecg_delineate with empty R-peaks
+        signals, waves = nk.ecg_delineate(cleaned, rpeaks=empty_rpeaks, sampling_rate=1000)
+
+        # Check that warning was issued
+        delineate_warnings = [warning for warning in w if "delineation" in str(warning.message)]
+        assert len(delineate_warnings) == 1, "ecg_delineate should issue one warning for empty R-peaks"
+
+        # Check return values
+        assert isinstance(signals, pd.DataFrame), "signals should be a DataFrame"
+        assert isinstance(waves, dict), "waves should be a dict"
+        assert signals.shape[0] == len(ecg_flat), "Signal length mismatch"
+        assert len(waves["ECG_P_Peaks"]) == 0, "Waves should contain empty arrays"
+
+
+def test_ecg_phase_no_rpeaks():
+    """Test that ecg_phase handles empty R-peaks array."""
+
+    # Create flatline ECG and get empty R-peaks
+    ecg_flat = np.zeros(1000)
+    cleaned = nk.ecg_clean(ecg_flat, sampling_rate=1000)
+    peaks, info = nk.ecg_peaks(cleaned, sampling_rate=1000)
+    empty_rpeaks = info["ECG_R_Peaks"]
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+
+        # Test ecg_phase with empty R-peaks
+        phases = nk.ecg_phase(cleaned, rpeaks=empty_rpeaks, sampling_rate=1000)
+
+        # Check that warning was issued
+        phase_warnings = [warning for warning in w if "phase determination" in str(warning.message)]
+        assert len(phase_warnings) == 1, "ecg_phase should issue one warning for empty R-peaks"
+
+        # Check return values
+        assert isinstance(phases, pd.DataFrame), "phases should be a DataFrame"
+        assert phases.shape[0] == len(ecg_flat), "Phase length mismatch"
+        assert np.all(np.isnan(phases["ECG_Phase_Atrial"])), "Phases should be NaN when no R-peaks"
+
+
+def test_ecg_quality_no_rpeaks():
+    """Test that ecg_quality handles empty R-peaks array."""
+
+    # Create flatline ECG and get empty R-peaks
+    ecg_flat = np.zeros(1000)
+    cleaned = nk.ecg_clean(ecg_flat, sampling_rate=1000)
+    peaks, info = nk.ecg_peaks(cleaned, sampling_rate=1000)
+    empty_rpeaks = info["ECG_R_Peaks"]
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+
+        # Test ecg_quality with empty R-peaks
+        quality = nk.ecg_quality(cleaned, rpeaks=empty_rpeaks, sampling_rate=1000)
+
+        # Check that warning was issued
+        quality_warnings = [warning for warning in w if "quality assessment" in str(warning.message)]
+        assert len(quality_warnings) == 1, "ecg_quality should issue one warning for empty R-peaks"
+
+        # Check return values
+        assert isinstance(quality, np.ndarray), "quality should be a numpy array"
+        assert len(quality) == len(ecg_flat), "Quality length mismatch"
+        assert np.all(np.isnan(quality)), "Quality should be NaN when no R-peaks"

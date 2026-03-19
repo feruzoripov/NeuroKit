@@ -1,3 +1,5 @@
+from warnings import warn
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -5,6 +7,7 @@ import pywt
 import scipy.signal
 
 from ..epochs import epochs_create, epochs_to_df
+from ..misc import NeuroKitWarning
 from ..signal import (
     signal_findpeaks,
     signal_formatpeaks,
@@ -160,6 +163,28 @@ def ecg_delineate(
 
     if isinstance(rpeaks, dict):
         rpeaks = rpeaks["ECG_R_Peaks"]
+
+    # Handle empty R-peaks array
+    if isinstance(rpeaks, (list, np.ndarray)) and len(rpeaks) == 0:
+        warn(
+            "No R-peaks were detected. Returning empty results for ECG delineation.",
+            category=NeuroKitWarning,
+        )
+        # Return empty results when no R-peaks are detected
+        waves = {
+            "ECG_P_Peaks": np.array([], dtype=float),
+            "ECG_P_Onsets": np.array([], dtype=float),
+            "ECG_P_Offsets": np.array([], dtype=float),
+            "ECG_Q_Peaks": np.array([], dtype=float),
+            "ECG_R_Onsets": np.array([], dtype=float),
+            "ECG_R_Offsets": np.array([], dtype=float),
+            "ECG_S_Peaks": np.array([], dtype=float),
+            "ECG_T_Peaks": np.array([], dtype=float),
+            "ECG_T_Onsets": np.array([], dtype=float),
+            "ECG_T_Offsets": np.array([], dtype=float),
+        }
+        signals = pd.DataFrame({key: np.zeros(len(ecg_cleaned), dtype=int) for key in waves.keys()})
+        return signals, waves
 
     method = method.lower()  # remove capitalised letters
     if method in ["peak", "peaks", "derivative", "gradient"]:
