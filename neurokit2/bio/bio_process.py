@@ -205,7 +205,7 @@ def bio_process(
     # Process signals (parallel or sequential)
     results = {}
     if parallel and len(_tasks) > 1:
-        with concurrent.futures.ProcessPoolExecutor() as executor:
+        with concurrent.futures.ProcessPoolExecutor(max_workers=len(_tasks)) as executor:
             futures = {name: executor.submit(func, sig, sampling_rate=sampling_rate) for name, func, sig in _tasks}
             for name, future in futures.items():
                 results[name] = future.result()
@@ -213,11 +213,14 @@ def bio_process(
         for name, func, sig in _tasks:
             results[name] = func(sig, sampling_rate=sampling_rate)
 
-    # Assemble results in consistent order
+    # Assemble results in consistent order (single concat for efficiency)
+    to_concat = []
     for name, _, _ in _tasks:
         signals_df, info_dict = results[name]
         bio_info.update(info_dict)
-        bio_df = pd.concat([bio_df, signals_df], axis=1)
+        to_concat.append(signals_df)
+    if to_concat:
+        bio_df = pd.concat(to_concat, axis=1)
 
     # Additional channels to keep
     if keep is not None:

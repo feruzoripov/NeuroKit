@@ -327,23 +327,21 @@ def entropy_multiscale(
     }
 
     # Compute entropy for each coarsegrained segment
+    def _run(scale_factor):
+        return _entropy_multiscale(
+            signal,
+            scale=scale_factor,
+            coarsegraining=coarsegraining,
+            algorithm=algorithm,
+            dimension=dimension,
+            tolerance=info["Tolerance"],
+            refined=refined,
+            **kwargs,
+        )
+
     if n_jobs == 1:
         # Sequential execution (original behavior)
-        info["Value"] = np.array(
-            [
-                _entropy_multiscale(
-                    signal,
-                    scale=scale,
-                    coarsegraining=coarsegraining,
-                    algorithm=algorithm,
-                    dimension=dimension,
-                    tolerance=info["Tolerance"],
-                    refined=refined,
-                    **kwargs,
-                )
-                for scale in info["Scale"]
-            ]
-        )
+        info["Value"] = np.array([_run(s) for s in info["Scale"]])
     else:
         # Parallel execution via joblib
         try:
@@ -354,21 +352,7 @@ def entropy_multiscale(
                 "for parallel execution. Please install it first (`pip install joblib`).",
             ) from e
 
-        info["Value"] = np.array(
-            joblib.Parallel(n_jobs=n_jobs)(
-                joblib.delayed(_entropy_multiscale)(
-                    signal,
-                    scale=scale,
-                    coarsegraining=coarsegraining,
-                    algorithm=algorithm,
-                    dimension=dimension,
-                    tolerance=info["Tolerance"],
-                    refined=refined,
-                    **kwargs,
-                )
-                for scale in info["Scale"]
-            )
-        )
+        info["Value"] = np.array(joblib.Parallel(n_jobs=n_jobs)(joblib.delayed(_run)(s) for s in info["Scale"]))
 
     # Remove inf, nan and 0
     mse = info["Value"][np.isfinite(info["Value"])]
