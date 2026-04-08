@@ -4,7 +4,7 @@ from ..signal import signal_power
 from .utils import _sanitize_eeg
 
 
-def eeg_power(eeg, sampling_rate=None, frequency_band=["Gamma", "Beta", "Alpha", "Theta", "Delta"], **kwargs):
+def eeg_power(eeg, sampling_rate=None, frequency_band=["Gamma", "Beta", "Alpha", "Theta", "Delta"], n_jobs=1, **kwargs):
     """**EEG Power in Different Frequency Bands**
 
     See our `walkthrough <https://neuropsychology.github.io/NeuroKit/examples/eeg_power/eeg_power.html>`_ for
@@ -30,6 +30,9 @@ def eeg_power(eeg, sampling_rate=None, frequency_band=["Gamma", "Beta", "Alpha",
         smoothing is requested.
     frequency_band : list
         A list of frequency bands (or tuples of frequencies).
+    n_jobs : int
+        Number of cores to use for processing channels in parallel. ``1`` (default) runs
+        sequentially. ``-1`` uses all available cores. Requires the ``joblib`` package.
     **kwargs
         Other arguments to be passed to ``nk.signal_power()``.
 
@@ -66,16 +69,35 @@ def eeg_power(eeg, sampling_rate=None, frequency_band=["Gamma", "Beta", "Alpha",
     # Sanitize input
     eeg, sampling_rate, _ = _sanitize_eeg(eeg, sampling_rate=sampling_rate)
 
-    # Iterate through channels
-    data = []
-    for channel in eeg.columns:
-        rez = signal_power(
-            eeg[channel].values,
-            sampling_rate=sampling_rate,
-            frequency_band=frequency_band,
-            **kwargs,
+    # Iterate through channels (parallel or sequential)
+    if n_jobs == 1:
+        data = []
+        for channel in eeg.columns:
+            rez = signal_power(
+                eeg[channel].values,
+                sampling_rate=sampling_rate,
+                frequency_band=frequency_band,
+                **kwargs,
+            )
+            data.append(rez)
+    else:
+        try:
+            import joblib
+        except ImportError as e:
+            raise ImportError(
+                "NeuroKit error: eeg_power(): the 'joblib' module is required "
+                "for parallel execution. Please install it first (`pip install joblib`).",
+            ) from e
+
+        data = joblib.Parallel(n_jobs=n_jobs)(
+            joblib.delayed(signal_power)(
+                eeg[channel].values,
+                sampling_rate=sampling_rate,
+                frequency_band=frequency_band,
+                **kwargs,
+            )
+            for channel in eeg.columns
         )
-        data.append(rez)
 
     data = pd.concat(data, axis=0)
     data.columns = band_names

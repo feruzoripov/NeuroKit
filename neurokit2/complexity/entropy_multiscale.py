@@ -23,6 +23,7 @@ def entropy_multiscale(
     tolerance="sd",
     method="MSEn",
     show=False,
+    n_jobs=1,
     **kwargs,
 ):
     """**Multiscale entropy (MSEn) and its Composite (CMSEn), Refined (RCMSEn) or fuzzy versions**
@@ -92,6 +93,10 @@ def entropy_multiscale(
         (case sensitive).
     show : bool
         Show the entropy values for each scale factor.
+    n_jobs : int
+        Number of cores to use for computing entropy at each scale factor in parallel. ``1``
+        (default) runs sequentially. ``-1`` uses all available cores. Requires the ``joblib``
+        package.
     **kwargs
         Optional arguments.
 
@@ -322,21 +327,48 @@ def entropy_multiscale(
     }
 
     # Compute entropy for each coarsegrained segment
-    info["Value"] = np.array(
-        [
-            _entropy_multiscale(
-                signal,
-                scale=scale,
-                coarsegraining=coarsegraining,
-                algorithm=algorithm,
-                dimension=dimension,
-                tolerance=info["Tolerance"],
-                refined=refined,
-                **kwargs,
+    if n_jobs == 1:
+        # Sequential execution (original behavior)
+        info["Value"] = np.array(
+            [
+                _entropy_multiscale(
+                    signal,
+                    scale=scale,
+                    coarsegraining=coarsegraining,
+                    algorithm=algorithm,
+                    dimension=dimension,
+                    tolerance=info["Tolerance"],
+                    refined=refined,
+                    **kwargs,
+                )
+                for scale in info["Scale"]
+            ]
+        )
+    else:
+        # Parallel execution via joblib
+        try:
+            import joblib
+        except ImportError as e:
+            raise ImportError(
+                "NeuroKit error: entropy_multiscale(): the 'joblib' module is required "
+                "for parallel execution. Please install it first (`pip install joblib`).",
+            ) from e
+
+        info["Value"] = np.array(
+            joblib.Parallel(n_jobs=n_jobs)(
+                joblib.delayed(_entropy_multiscale)(
+                    signal,
+                    scale=scale,
+                    coarsegraining=coarsegraining,
+                    algorithm=algorithm,
+                    dimension=dimension,
+                    tolerance=info["Tolerance"],
+                    refined=refined,
+                    **kwargs,
+                )
+                for scale in info["Scale"]
             )
-            for scale in info["Scale"]
-        ]
-    )
+        )
 
     # Remove inf, nan and 0
     mse = info["Value"][np.isfinite(info["Value"])]

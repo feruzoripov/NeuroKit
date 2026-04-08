@@ -148,6 +148,7 @@ def _ecg_findpeaks_promac(
     ],
     threshold=0.33,
     gaussian_sd=100,
+    n_jobs=1,
     **kwargs,
 ):
     """Probabilistic Methods-Agreement via Convolution (ProMAC).
@@ -172,20 +173,49 @@ def _ecg_findpeaks_promac(
         The standard deviation of the Gaussian distribution used to represent the peak location
         probability. This value should be in millisencods and is usually taken as the size of
         QRS complexes.
+    n_jobs : int
+        Number of cores to use for running peak detection methods in parallel. ``1`` (default)
+        runs sequentially. ``-1`` uses all available cores. Requires the ``joblib`` package.
 
     """
     x = np.zeros(len(signal))
     promac_methods = [method.lower() for method in promac_methods]  # remove capitalised letters
     error_list = []  # Stores the failed methods
 
-    for method in promac_methods:
+    if n_jobs == 1:
+        # Sequential execution (original behavior)
+        for method in promac_methods:
+            try:
+                func = _ecg_findpeaks_findmethod(method)
+                x = _ecg_findpeaks_promac_addconvolve(signal, sampling_rate, x, func, gaussian_sd=gaussian_sd, **kwargs)
+            except ValueError:
+                error_list.append(f"Method '{method}' is not valid.")
+            except Exception as error:
+                error_list.append(f"{method} error: {error}")
+    else:
+        # Parallel execution via joblib
         try:
-            func = _ecg_findpeaks_findmethod(method)
-            x = _ecg_findpeaks_promac_addconvolve(signal, sampling_rate, x, func, gaussian_sd=gaussian_sd, **kwargs)
-        except ValueError:
-            error_list.append(f"Method '{method}' is not valid.")
-        except Exception as error:
-            error_list.append(f"{method} error: {error}")
+            import joblib
+        except ImportError as e:
+            raise ImportError(
+                "NeuroKit error: _ecg_findpeaks_promac(): the 'joblib' module is required "
+                "for parallel execution. Please install it first (`pip install joblib`).",
+            ) from e
+
+        def _run_method(method_name, sig, sr, gsd, **kw):
+            func = _ecg_findpeaks_findmethod(method_name)
+            peaks = func(sig, sampling_rate=sr, **kw)
+            mask = np.zeros(len(sig))
+            mask[peaks] = 1
+            sd = sr * gsd / 1000
+            shape = scipy.stats.norm.pdf(np.linspace(-sd * 4, sd * 4, num=int(sd * 8)), loc=0, scale=sd)
+            return np.convolve(mask, shape, "same")
+
+        results = joblib.Parallel(n_jobs=n_jobs)(
+            joblib.delayed(_run_method)(method, signal, sampling_rate, gaussian_sd, **kwargs) for method in promac_methods
+        )
+        for convolved in results:
+            x += convolved
 
     # Rescale
     x = x / np.max(x)
